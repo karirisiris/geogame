@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Geo Flyer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0d1b2a;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #fff;
+    touch-action: none;
+  }
+  h1 { margin-bottom: 8px; font-size: 1.4rem; }
+  #game-wrap {
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border-radius: 8px;
+    overflow: hidden;
+    max-width: 100vw;
+  }
+  canvas {
+    display: block;
+    background: linear-gradient(180deg, #4da0ff 0%, #a6d8ff 70%, #cdeaff 100%);
+    max-width: 100vw;
+    max-height: 75vh;
+    width: auto;
+    height: auto;
+  }
+  #overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(0,0,0,0.55);
+    padding: 20px;
+    z-index: 10;
+  }
+  #overlay h2 { font-size: 1.6rem; margin-bottom: 8px; }
+  #overlay p { font-size: 0.95rem; opacity: 0.9; margin-bottom: 16px; line-height: 1.5; }
+  #overlay button {
+    padding: 12px 32px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    background: #f1c40f;
+    color: #1e3c72;
+    cursor: pointer;
+  }
+  #overlay button:hover { background: #f39c12; }
+  #hint { margin-top: 8px; font-size: 0.85rem; opacity: 0.7; text-align: center; }
+  #speed-bar-wrap {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    width: 100px;
+    height: 10px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 2;
+  }
+  #speed-bar {
+    height: 100%;
+    background: #f1c40f;
+    width: 50%;
+  }
+
+  .touch-controls {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .touch-btn {
+    pointer-events: auto;
+    position: absolute;
+    background: rgba(255,255,255,0.25);
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    user-select: none;
+  }
+  .btn-dir { width: 50px; height: 50px; left: 20px; }
+  #btn-up { bottom: 80px; }
+  #btn-down { bottom: 20px; }
+  .btn-speed { width: 45px; height: 45px; right: 20px; }
+  #btn-fast { bottom: 80px; }
+  #btn-slow { bottom: 20px; }
+
+  @media (pointer: coarse) {
+    .touch-controls { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🌍 Geo Flyer</h1>
+
+<div id="game-wrap">
+  <canvas id="game" width="480" height="640"></canvas>
+  <div id="speed-bar-wrap"><div id="speed-bar"></div></div>
+
+  <div class="touch-controls">
+    <div class="touch-btn btn-dir" id="btn-up">▲</div>
+    <div class="touch-btn btn-dir" id="btn-down">▼</div>
+    <div class="touch-btn btn-speed" id="btn-fast">+</div>
+    <div class="touch-btn btn-speed" id="btn-slow">-</div>
+  </div>
+
+  <div id="overlay">
+    <h2 id="overlay-title">Geo Flyer</h2>
+    <p id="overlay-text">Your plane flies forward on its own.<br>
+      Steer with <strong>↑/W</strong> or touch <strong>▲/▼</strong>.<br>
+      Use <strong>A/D</strong> or <strong>+/-</strong> to adjust speed.<br>
+      Dodge the mountains!</p>
+    <button id="start-btn">Start Flying</button>
+  </div>
+</div>
+
+<p id="hint">Desktop: WASD/Arrows · Mobile: On-screen buttons</p>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width;
+const H = canvas.height;
+
+const VERTICAL_SPEED = 4;
+const PIPE_WIDTH = 90;
+const PIPE_GAP = 190;
+const PIPE_SPACING = 260;
+
+const MIN_SPEED = 1.5;
+const MAX_SPEED = 7;
+const DEFAULT_SPEED = 3;
+const SPEED_ACCEL = 0.06;
+
+const SAFE_START_DISTANCE = 400;
+
+const FLAGS = [
+  { emoji: "🇫🇷", name: "France" }, { emoji: "🇯🇵", name: "Japan" },
+  { emoji: "🇧🇷", name: "Brazil" }, { emoji: "🇹🇭", name: "Thailand" },
+  { emoji: "🇪🇬", name: "Egypt" },  { emoji: "🇦🇺", name: "Australia" },
+  { emoji: "🇰🇷", name: "South Korea" }, { emoji: "🇮🇳", name: "India" },
+  { emoji: "🇨🇦", name: "Canada" }, { emoji: "🇿🇦", name: "South Africa" },
+  { emoji: "🇲🇽", name: "Mexico" }, { emoji: "🇩🇪", name: "Germany" }
+];
+
+/* =========================================================
+   AUDIO SYSTEM (Web Audio API Synthesizer)
+   ========================================================= */
+let audioCtx = null;
+let engineOsc = null;
+let engineGain = null;
+
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+function startEngineSound() {
+  if (!audioCtx) return;
+  stopEngineSound();
+
+  engineOsc = audioCtx.createOscillator();
+  engineGain = audioCtx.createGain();
+
+  engineOsc.type = 'sawtooth';
+  engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+
+  engineGain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+
+  engineOsc.connect(engineGain);
+  engineGain.connect(audioCtx.destination);
+  engineOsc.start();
+}
+
+function updateEnginePitch(speed) {
+  if (engineOsc && audioCtx) {
+    const pitch = 50 + (speed - MIN_SPEED) * 18;
+    engineOsc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.1);
+  }
+}
+
+function stopEngineSound() {
+  if (engineOsc) {
+    try { engineOsc.stop(); engineOsc.disconnect(); } catch(e){}
+    engineOsc = null;
+  }
+}
+
+function playScoreSound() {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+  osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.25);
+}
+
+function playCrashSound() {
+  if (!audioCtx) return;
+  
+  // Noise buffer for explosion
+  const bufferSize = audioCtx.sampleRate * 0.4;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+  filter.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  noise.start();
+}
+
+/* =========================================================
+   GAME STATE & LOGIC
+   ========================================================= */
+let plane, pipes, score, best, gameRunning;
+let worldSpeed;
+let distanceSinceLastPipe;
+let currentFlag, flagTimer;
+
+const keys = { up: false, down: false, left: false, right: false };
+
+function resetGame() {
+  plane = { x: 90, y: H / 2, size: 22 };
+  pipes = [];
+  score = 0;
+  gameRunning = false;
+  worldSpeed = DEFAULT_SPEED;
+  distanceSinceLastPipe = -SAFE_START_DISTANCE;
+  currentFlag = null;
+  flagTimer = 0;
+  best = Number(localStorage.getItem("geoFlyerBest") || 0);
+}
+
+const RIDGE_X_FRACS = [0, 0.16, 0.34, 0.5, 0.66, 0.84, 1];
+
+function makeRidge() {
+  return [0, 0.35 + Math.random()*0.25, 0.55 + Math.random()*0.3, 1, 0.55 + Math.random()*0.3, 0.35 + Math.random()*0.25, 0];
+}
+
+function spawnPipe() {
+  const margin = 60;
+  const gapCenter = margin + Math.random() * (H - margin * 2 - PIPE_GAP);
+  pipes.push({
+    x: W,
+    gapTop: gapCenter - PIPE_GAP / 2,
+    gapBottom: gapCenter + PIPE_GAP / 2,
+    passed: false,
+    topRidge: makeRidge(),
+    bottomRidge: makeRidge(),
+    treeSeed: Math.random()
+  });
+}
+
+function setKey(code, isDown) {
+  switch (code) {
+    case "ArrowUp": case "KeyW": keys.up = isDown; break;
+    case "ArrowDown": case "KeyS": keys.down = isDown; break;
+    case "KeyA": keys.left = isDown; break;
+    case "KeyD": keys.right = isDown; break;
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (["ArrowUp","ArrowDown","KeyW","KeyS","KeyA","KeyD"].includes(e.code)) e.preventDefault();
+  setKey(e.code, true);
+});
+document.addEventListener("keyup", (e) => setKey(e.code, false));
+
+function bindTouch(id, keyName) {
+  const el = document.getElementById(id);
+  el.addEventListener("touchstart", (e) => { e.preventDefault(); keys[keyName] = true; });
+  el.addEventListener("touchend", (e) => { e.preventDefault(); keys[keyName] = false; });
+}
+bindTouch("btn-up", "up");
+bindTouch("btn-down", "down");
+bindTouch("btn-fast", "right");
+bindTouch("btn-slow", "left");
+
+function update() {
+  if (keys.up) plane.y -= VERTICAL_SPEED;
+  if (keys.down) plane.y += VERTICAL_SPEED;
+
+  const halfSize = plane.size / 2;
+  plane.y = Math.max(halfSize, Math.min(H - halfSize, plane.y));
+
+  if (keys.left) worldSpeed = Math.max(MIN_SPEED, worldSpeed - SPEED_ACCEL);
+  if (keys.right) worldSpeed = Math.min(MAX_SPEED, worldSpeed + SPEED_ACCEL);
+
+  updateEnginePitch(worldSpeed);
+
+  distanceSinceLastPipe += worldSpeed;
+  if (distanceSinceLastPipe >= PIPE_SPACING) {
+    spawnPipe();
+    distanceSinceLastPipe = 0;
+  }
+
+  pipes.forEach(pipe => {
+    pipe.x -= worldSpeed;
+
+    if (!pipe.passed && pipe.x + PIPE_WIDTH < plane.x) {
+      pipe.passed = true;
+      score++;
+      playScoreSound();
+      if (score % 4 === 0) {
+        currentFlag = FLAGS[Math.floor(Math.random() * FLAGS.length)];
+        flagTimer = 90;
+      }
+    }
+
+    const withinX = plane.x + halfSize > pipe.x && plane.x - halfSize < pipe.x + PIPE_WIDTH;
+    const hitsTop = plane.y - halfSize < pipe.gapTop;
+    const hitsBottom = plane.y + halfSize > pipe.gapBottom;
+    if (withinX && (hitsTop || hitsBottom)) endGame();
+  });
+
+  pipes = pipes.filter(p => p.x + PIPE_WIDTH > 0);
+  if (flagTimer > 0) flagTimer--;
+}
+
+let cloudOffset = 0;
+
+function drawMountain(pipe, isTop) {
+  const baseY = isTop ? 0 : H;
+  const tipY = isTop ? pipe.gapTop : pipe.gapBottom;
+  const ridge = isTop ? pipe.topRidge : pipe.bottomRidge;
+
+  const yAt = (hFrac) => baseY + (tipY - baseY) * hFrac;
+
+  const grad = ctx.createLinearGradient(0, baseY, 0, tipY);
+  grad.addColorStop(0, "#3f5233");
+  grad.addColorStop(0.55, "#6b6459");
+  grad.addColorStop(0.85, "#9a958c");
+  grad.addColorStop(1, "#f5f7fa");
+
+  ctx.beginPath();
+  ctx.moveTo(pipe.x, baseY);
+  RIDGE_X_FRACS.forEach((xf, i) => { ctx.lineTo(pipe.x + xf * PIPE_WIDTH, yAt(ridge[i])); });
+  ctx.lineTo(pipe.x + PIPE_WIDTH, baseY);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(0,0,0,0.12)";
+  for (let i = 1; i < RIDGE_X_FRACS.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(pipe.x + RIDGE_X_FRACS[i - 1] * PIPE_WIDTH, yAt(ridge[i - 1]));
+    ctx.lineTo(pipe.x + RIDGE_X_FRACS[i] * PIPE_WIDTH, yAt(ridge[i]));
+    ctx.lineTo(pipe.x + RIDGE_X_FRACS[i] * PIPE_WIDTH, baseY);
+    ctx.lineTo(pipe.x + RIDGE_X_FRACS[i - 1] * PIPE_WIDTH, baseY);
+    ctx.closePath();
+    if (i % 2 === 0) ctx.fill();
+  }
+
+  const peakXf = RIDGE_X_FRACS[3];
+  const peakX = pipe.x + peakXf * PIPE_WIDTH;
+  const peakY = yAt(1);
+  const capSpread = PIPE_WIDTH * 0.1;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(peakX, peakY);
+  ctx.lineTo(peakX - capSpread, yAt(1) + (baseY - yAt(1)) * -0.02 + (isTop ? -6 : 6));
+  ctx.lineTo(peakX + capSpread, yAt(1) + (isTop ? -6 : 6));
+  ctx.closePath();
+  ctx.fill();
+}
+
+/* =========================================================
+   RESTORED COOL PLANE RENDERING
+   ========================================================= */
+function drawPlane() {
+  ctx.save();
+  ctx.translate(plane.x, plane.y);
+
+  let angle = 0;
+  if (keys.up) angle = -0.3;
+  else if (keys.down) angle = 0.3;
+  ctx.rotate(angle);
+
+  const s = plane.size;
+
+  // Vertical Tail Fin
+  ctx.fillStyle = "#d64545";
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.05, 0);
+  ctx.lineTo(-s * 1.5, -s * 0.85);
+  ctx.lineTo(-s * 0.75, -s * 0.15);
+  ctx.closePath();
+  ctx.fill();
+
+  // Horizontal Stabilizer
+  ctx.fillStyle = "#c94040";
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.25, 0);
+  ctx.lineTo(-s * 1.55, s * 0.32);
+  ctx.lineTo(-s * 0.95, s * 0.14);
+  ctx.closePath();
+  ctx.fill();
+
+  // Main Swept Wing
+  ctx.fillStyle = "#e6e9ec";
+  ctx.strokeStyle = "#aeb4ba";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, s * 0.08);
+  ctx.lineTo(-s * 0.85, s * 0.85);
+  ctx.lineTo(-s * 0.25, s * 0.85);
+  ctx.lineTo(s * 0.4, s * 0.14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Fuselage Body
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#1e3c72";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.05, -s * 0.24);
+  ctx.quadraticCurveTo(-s * 0.15, -s * 0.55, s * 0.85, -s * 0.17);
+  ctx.quadraticCurveTo(s * 1.35, 0, s * 0.85, s * 0.17);
+  ctx.quadraticCurveTo(-s * 0.15, s * 0.55, -s * 1.05, s * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Red Nose Tip
+  ctx.fillStyle = "#d64545";
+  ctx.beginPath();
+  ctx.moveTo(s * 0.85, -s * 0.17);
+  ctx.quadraticCurveTo(s * 1.35, 0, s * 0.85, s * 0.17);
+  ctx.lineTo(s * 0.68, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Cockpit Window
+  ctx.fillStyle = "#28344d";
+  ctx.beginPath();
+  ctx.ellipse(s * 0.52, -s * 0.06, s * 0.24, s * 0.14, -0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Passenger Windows
+  ctx.fillStyle = "#8fb8e8";
+  for (let wx = -s * 0.75; wx <= s * 0.05; wx += s * 0.32) {
+    ctx.beginPath();
+    ctx.arc(wx, -s * 0.02, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+
+  cloudOffset += worldSpeed * 0.15;
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  for (let i = 0; i < 4; i++) {
+    const cx = (cloudOffset + i * 160) % (W + 100) - 50;
+    ctx.beginPath();
+    ctx.ellipse(cx, 80 + i * 40, 30, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  pipes.forEach(pipe => {
+    drawMountain(pipe, true);
+    drawMountain(pipe, false);
+  });
+
+  drawPlane();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(score, W / 2, 50);
+
+  if (currentFlag && flagTimer > 0) {
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(W / 2 - 110, 70, 220, 46);
+    ctx.font = "24px sans-serif";
+    ctx.fillStyle = "#fff";
+    ctx.fillText(`${currentFlag.emoji}  ${currentFlag.name}`, W / 2, 100);
+  }
+
+  const pct = ((worldSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * 100;
+  speedBar.style.width = pct + "%";
+}
+
+function loop() {
+  if (gameRunning) {
+    update();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+
+const overlay = document.getElementById("overlay");
+const overlayTitle = document.getElementById("overlay-title");
+const overlayText = document.getElementById("overlay-text");
+const startBtn = document.getElementById("start-btn");
+const speedBar = document.getElementById("speed-bar");
+
+function startGame() {
+  initAudio();
+  resetGame();
+  gameRunning = true;
+  overlay.style.display = "none";
+  startEngineSound();
+}
+
+function endGame() {
+  if (!gameRunning) return;
+  gameRunning = false;
+  stopEngineSound();
+  playCrashSound();
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("geoFlyerBest", String(best));
+  }
+  overlayTitle.textContent = "Crashed!";
+  overlayText.innerHTML = `You flew past <strong>${score}</strong> obstacles.<br>Best: ${best}`;
+  startBtn.textContent = "Try Again";
+  overlay.style.display = "flex";
+}
+
+startBtn.addEventListener("click", startGame);
+
+resetGame();
+draw();
+loop();
+</script>
+
+</body>
+</html>
