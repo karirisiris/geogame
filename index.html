@@ -47,11 +47,11 @@
     background: rgba(0, 0, 0, 0.55);
     padding: 6px 12px;
     border-radius: 20px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: bold;
     backdrop-filter: blur(4px);
   }
-  #mute-btn {
+  .hud-btn {
     pointer-events: auto;
     background: rgba(0, 0, 0, 0.65);
     color: #fff;
@@ -63,7 +63,11 @@
     cursor: pointer;
     transition: background 0.2s;
   }
-  #mute-btn:hover { background: rgba(0, 0, 0, 0.85); }
+  .hud-btn:hover { background: rgba(0, 0, 0, 0.85); }
+  #hud-controls {
+    display: flex;
+    gap: 6px;
+  }
   #overlay {
     position: absolute;
     inset: 0;
@@ -72,7 +76,7 @@
     align-items: center;
     justify-content: center;
     text-align: center;
-    background: rgba(0,0,0,0.55);
+    background: rgba(0,0,0,0.65);
     padding: 20px;
     z-index: 10;
   }
@@ -145,8 +149,11 @@
 
 <div id="game-wrap">
   <div id="hud-top">
-    <div class="hud-badge">🪙 Coins: <span id="coin-count">0</span></div>
-    <button id="mute-btn">🔊 Audio: ON</button>
+    <div class="hud-badge"><span id="lbl-coins">🪙 Coins</span>: <span id="coin-count">0</span></div>
+    <div id="hud-controls">
+      <button class="hud-btn" id="lang-btn">🌐 TH</button>
+      <button class="hud-btn" id="mute-btn">🔊 Audio: ON</button>
+    </div>
   </div>
 
   <canvas id="game" width="480" height="640"></canvas>
@@ -161,15 +168,12 @@
 
   <div id="overlay">
     <h2 id="overlay-title">Geo Flyer</h2>
-    <p id="overlay-text">Your plane flies forward on its own.<br>
-      Steer with <strong>↑/W</strong> or touch <strong>▲/▼</strong>.<br>
-      Use <strong>A/D</strong> or <strong>+/-</strong> to adjust speed.<br>
-      Collect 🪙 coins & enter a new country every <strong>12 points</strong>!</p>
+    <p id="overlay-text"></p>
     <button id="start-btn">Start Flying</button>
   </div>
 </div>
 
-<p id="hint">Desktop: WASD/Arrows · Mobile: On-screen buttons</p>
+<p id="hint"></p>
 
 <script>
 const canvas = document.getElementById("game");
@@ -190,35 +194,91 @@ const SPEED_ACCEL = 0.06;
 const SAFE_START_DISTANCE = 400;
 
 /* =========================================================
-   COUNTRY THEMES & WEATHER TYPES
+   TRANSLATION DICTIONARY
+   ========================================================= */
+let currentLang = "en"; // 'en' or 'th'
+
+const I18N = {
+  en: {
+    title: "Geo Flyer",
+    coins: "🪙 Coins",
+    audioOn: "🔊 Audio: ON",
+    audioOff: "🔇 Audio: OFF",
+    startTitle: "Geo Flyer",
+    startText: `Your plane flies forward on its own.<br>
+      Steer with <strong>↑/W</strong> or touch <strong>▲/▼</strong>.<br>
+      Use <strong>A/D</strong> or <strong>+/-</strong> to adjust speed.<br>
+      Collect 🪙 coins & enter a new country every <strong>12 points</strong>!`,
+    startBtn: "Start Flying",
+    crashedTitle: "Crashed!",
+    crashedText: (score, coins, best) => `You scored <strong>${score}</strong> points.<br>Coins Collected: 🪙 <strong>${coins}</strong><br>Best Score: ${best}`,
+    tryAgainBtn: "Try Again",
+    hint: "Desktop: WASD/Arrows · Mobile: On-screen buttons",
+    entering: (emoji, name) => `Entering ${emoji} ${name}!`,
+    countries: {
+      Canada: "Canada",
+      Thailand: "Thailand",
+      Egypt: "Egypt",
+      Japan: "Japan",
+      Australia: "Australia"
+    }
+  },
+  th: {
+    title: "Geo Flyer",
+    coins: "🪙 เหรียญ",
+    audioOn: "🔊 เสียง: เปิด",
+    audioOff: "🔇 เสียง: ปิด",
+    startTitle: "Geo Flyer",
+    startText: `เครื่องบินจะบินไปข้างหน้าโดยอัตโนมัติ<br>
+      บังคับทิศทางด้วย <strong>↑/W</strong> หรือปุ่ม <strong>▲/▼</strong><br>
+      ปรับความเร็วด้วย <strong>A/D</strong> หรือปุ่ม <strong>+/-</strong><br>
+      เก็บ 🪙 เหรียญ & เปลี่ยนประเทศใหม่ทุกๆ <strong>12 คะแนน</strong>!`,
+    startBtn: "เริ่มบิน",
+    crashedTitle: "เครื่องบินตก!",
+    crashedText: (score, coins, best) => `คุณทำได้ <strong>${score}</strong> คะแนน<br>เหรียญที่เก็บได้: 🪙 <strong>${coins}</strong><br>สถิติสูงสุด: ${best}`,
+    tryAgainBtn: "ลองอีกครั้ง",
+    hint: "คอมพิวเตอร์: ปุ่มลูกศร/WASD · มือถือ: ปุ่มบนหน้าจอ",
+    entering: (emoji, name) => `กำลังเข้าสู่ ${emoji} ประเทศ${name}!`,
+    countries: {
+      Canada: "แคนาดา",
+      Thailand: "ไทย",
+      Egypt: "อียิปต์",
+      Japan: "ญี่ปุ่น",
+      Australia: "ออสเตรเลีย"
+    }
+  }
+};
+
+/* =========================================================
+   COUNTRY THEMES
    ========================================================= */
 const COUNTRIES = [
   {
-    emoji: "🇨🇦", name: "Canada", weather: "snow",
+    emoji: "🇨🇦", key: "Canada", weather: "snow",
     sky: ["#3a7bd5", "#73a5ff", "#bbd2c5"],
     base: "#2d3a2a", mid: "#505852", peak: "#a0aab2", snow: "#ffffff", tree: "#1d2e1c",
     hasSnow: true
   },
   {
-    emoji: "🇹🇭", name: "Thailand", weather: "rain",
+    emoji: "🇹🇭", key: "Thailand", weather: "rain",
     sky: ["#00b4db", "#0083b0", "#a8e063"],
     base: "#1b4332", mid: "#2d6a4f", peak: "#52b788", snow: null, tree: "#081c15",
     hasSnow: false
   },
   {
-    emoji: "🇪🇬", name: "Egypt", weather: "sand",
+    emoji: "🇪🇬", key: "Egypt", weather: "sand",
     sky: ["#f2994a", "#f2c94c", "#ffeb3b"],
     base: "#8d5b4c", mid: "#b07d62", peak: "#deab90", snow: null, tree: "#5c3d2e",
     hasSnow: false
   },
   {
-    emoji: "🇯🇵", name: "Japan", weather: "snow",
+    emoji: "🇯🇵", key: "Japan", weather: "snow",
     sky: ["#4a00e0", "#8e2de2", "#f8cdda"],
     base: "#2b2d42", mid: "#4a4e69", peak: "#8d99ae", snow: "#ffffff", tree: "#ffb703",
     hasSnow: true
   },
   {
-    emoji: "🇦🇺", name: "Australia", weather: "rain",
+    emoji: "🇦🇺", key: "Australia", weather: "rain",
     sky: ["#11998e", "#38ef7d", "#f45c43"],
     base: "#582f0e", mid: "#7f4f24", peak: "#936639", snow: null, tree: "#333d29",
     hasSnow: false
@@ -262,7 +322,7 @@ class WeatherSystem {
     const weatherType = COUNTRIES[currentCountryIndex].weather;
     this.particles.forEach(p => {
       p.y += p.speedY;
-      p.x += p.speedX - (worldSpeed * 0.3); // Responsive wind displacement
+      p.x += p.speedX - (worldSpeed * 0.3);
 
       if (weatherType === 'snow') {
         p.swayOffset += 0.02;
@@ -303,7 +363,7 @@ class WeatherSystem {
 const weatherSystem = new WeatherSystem();
 
 /* =========================================================
-   AUDIO SYSTEM (Web Audio API Synthesizer with Mute)
+   AUDIO SYSTEM
    ========================================================= */
 let audioCtx = null;
 let engineOsc = null;
@@ -311,15 +371,36 @@ let engineGain = null;
 let isMuted = false;
 
 const muteBtn = document.getElementById("mute-btn");
+const langBtn = document.getElementById("lang-btn");
+
 muteBtn.addEventListener("click", () => {
   isMuted = !isMuted;
-  muteBtn.textContent = isMuted ? "🔇 Audio: OFF" : "🔊 Audio: ON";
+  muteBtn.textContent = isMuted ? I18N[currentLang].audioOff : I18N[currentLang].audioOn;
   if (isMuted) {
     stopEngineSound();
   } else if (gameRunning) {
     startEngineSound();
   }
 });
+
+langBtn.addEventListener("click", () => {
+  currentLang = currentLang === "en" ? "th" : "en";
+  langBtn.textContent = currentLang === "en" ? "🌐 TH" : "🌐 EN";
+  updateUINotifications();
+});
+
+function updateUINotifications() {
+  const txt = I18N[currentLang];
+  document.getElementById("lbl-coins").textContent = txt.coins;
+  muteBtn.textContent = isMuted ? txt.audioOff : txt.audioOn;
+  document.getElementById("hint").textContent = txt.hint;
+
+  if (!gameRunning) {
+    document.getElementById("overlay-title").textContent = txt.startTitle;
+    document.getElementById("overlay-text").innerHTML = txt.startText;
+    document.getElementById("start-btn").textContent = txt.startBtn;
+  }
+}
 
 function initAudio() {
   if (!audioCtx) {
@@ -382,8 +463,8 @@ function playCoinSound() {
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(987.77, audioCtx.currentTime); // B5
-  osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08); // E6
+  osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
+  osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
 
   gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
   gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
@@ -396,7 +477,7 @@ function playCoinSound() {
 
 function playCountrySwitchSound() {
   if (!audioCtx || isMuted) return;
-  const notes = [523.25, 659.25, 783.99, 1046.50]; // C Major Fanfare
+  const notes = [523.25, 659.25, 783.99, 1046.50];
   notes.forEach((freq, idx) => {
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
@@ -465,6 +546,7 @@ function resetGame() {
   best = Number(localStorage.getItem("geoFlyerBest") || 0);
   document.getElementById("coin-count").innerText = totalCoinsCollected;
   weatherSystem.init();
+  updateUINotifications();
 }
 
 const RIDGE_X_FRACS = [0, 0.16, 0.34, 0.5, 0.66, 0.84, 1];
@@ -487,7 +569,6 @@ function spawnPipe() {
     treeSeed: Math.random()
   });
 
-  // Spawn collectible coin inside gap
   if (Math.random() > 0.25) {
     coinsList.push({
       x: W + PIPE_WIDTH / 2,
@@ -541,7 +622,6 @@ function update() {
     distanceSinceLastPipe = 0;
   }
 
-  // Update Mountain Obstacles
   pipes.forEach(pipe => {
     pipe.x -= worldSpeed;
 
@@ -549,7 +629,6 @@ function update() {
       pipe.passed = true;
       score++;
       
-      // EVERY 12 POINTS -> SWITCH COUNTRY!
       if (score > 0 && score % 12 === 0) {
         currentCountryIndex = (currentCountryIndex + 1) % COUNTRIES.length;
         bannerTimer = 120;
@@ -565,12 +644,10 @@ function update() {
     if (withinX && (hitsTop || hitsBottom)) endGame();
   });
 
-  // Update Collectible Coins
   for (let i = coinsList.length - 1; i >= 0; i--) {
     let coin = coinsList[i];
     coin.x -= worldSpeed;
 
-    // Check collision with plane
     const dx = plane.x - coin.x;
     const dy = plane.y - coin.y;
     const dist = Math.sqrt(dx * dx + dy * dy);
@@ -578,11 +655,10 @@ function update() {
     if (!coin.collected && dist < halfSize + coin.radius) {
       coin.collected = true;
       totalCoinsCollected++;
-      score++; // Coins grant +1 point
+      score++;
       document.getElementById("coin-count").innerText = totalCoinsCollected;
       playCoinSound();
 
-      // Trigger country switch if coin hits point boundary
       if (score > 0 && score % 12 === 0) {
         currentCountryIndex = (currentCountryIndex + 1) % COUNTRIES.length;
         bannerTimer = 120;
@@ -601,9 +677,6 @@ function update() {
 
 let cloudOffset = 0;
 
-/* =========================================================
-   COUNTRY-SPECIFIC MOUNTAIN & ATMOSPHERE RENDERER
-   ========================================================= */
 function drawMountain(pipe, isTop) {
   const theme = pipe.country;
   const baseY = isTop ? 0 : H;
@@ -612,7 +685,6 @@ function drawMountain(pipe, isTop) {
 
   const yAt = (hFrac) => baseY + (tipY - baseY) * hFrac;
 
-  // Mountain Color Gradient based on Country Theme
   const grad = ctx.createLinearGradient(0, baseY, 0, tipY);
   grad.addColorStop(0, theme.base);
   grad.addColorStop(0.55, theme.mid);
@@ -626,7 +698,6 @@ function drawMountain(pipe, isTop) {
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // Shading facets for 3D depth
   ctx.fillStyle = "rgba(0,0,0,0.15)";
   for (let i = 1; i < RIDGE_X_FRACS.length; i++) {
     ctx.beginPath();
@@ -638,7 +709,6 @@ function drawMountain(pipe, isTop) {
     if (i % 2 === 0) ctx.fill();
   }
 
-  // Snow Cap (Only if theme supports snow)
   if (theme.hasSnow && theme.snow) {
     const peakXf = RIDGE_X_FRACS[3];
     const peakX = pipe.x + peakXf * PIPE_WIDTH;
@@ -653,7 +723,6 @@ function drawMountain(pipe, isTop) {
     ctx.fill();
   }
 
-  // Base Foliage / Trees
   ctx.fillStyle = theme.tree;
   const treeCount = 3;
   for (let t = 0; t < treeCount; t++) {
@@ -676,7 +745,6 @@ function drawCoins() {
     ctx.save();
     ctx.translate(c.x, c.y);
     
-    // Golden Coin Body
     ctx.beginPath();
     ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
     ctx.fillStyle = "#f1c40f";
@@ -685,7 +753,6 @@ function drawCoins() {
     ctx.strokeStyle = "#d35400";
     ctx.stroke();
 
-    // Inner Coin Detail
     ctx.beginPath();
     ctx.arc(0, 0, c.radius * 0.5, 0, Math.PI * 2);
     ctx.strokeStyle = "#f39c12";
@@ -704,7 +771,6 @@ function drawPlane() {
 
   const s = plane.size;
 
-  // Vertical Tail Fin
   ctx.fillStyle = "#d64545";
   ctx.beginPath();
   ctx.moveTo(-s * 1.05, 0);
@@ -713,7 +779,6 @@ function drawPlane() {
   ctx.closePath();
   ctx.fill();
 
-  // Horizontal Stabilizer
   ctx.fillStyle = "#c94040";
   ctx.beginPath();
   ctx.moveTo(-s * 1.25, 0);
@@ -722,7 +787,6 @@ function drawPlane() {
   ctx.closePath();
   ctx.fill();
 
-  // Main Swept Wing
   ctx.fillStyle = "#e6e9ec";
   ctx.strokeStyle = "#aeb4ba";
   ctx.lineWidth = 1;
@@ -735,7 +799,6 @@ function drawPlane() {
   ctx.fill();
   ctx.stroke();
 
-  // Fuselage Body
   ctx.fillStyle = "#ffffff";
   ctx.strokeStyle = "#1e3c72";
   ctx.lineWidth = 1.5;
@@ -748,7 +811,6 @@ function drawPlane() {
   ctx.fill();
   ctx.stroke();
 
-  // Red Nose Tip
   ctx.fillStyle = "#d64545";
   ctx.beginPath();
   ctx.moveTo(s * 0.85, -s * 0.17);
@@ -757,13 +819,11 @@ function drawPlane() {
   ctx.closePath();
   ctx.fill();
 
-  // Cockpit Window
   ctx.fillStyle = "#28344d";
   ctx.beginPath();
   ctx.ellipse(s * 0.52, -s * 0.06, s * 0.24, s * 0.14, -0.15, 0, Math.PI * 2);
   ctx.fill();
 
-  // Passenger Windows
   ctx.fillStyle = "#8fb8e8";
   for (let wx = -s * 0.75; wx <= s * 0.05; wx += s * 0.32) {
     ctx.beginPath();
@@ -776,8 +836,8 @@ function drawPlane() {
 
 function draw() {
   const currentTheme = COUNTRIES[currentCountryIndex];
+  const translatedCountryName = I18N[currentLang].countries[currentTheme.key];
 
-  // Dynamic Sky Background based on current country
   const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
   skyGrad.addColorStop(0, currentTheme.sky[0]);
   skyGrad.addColorStop(0.7, currentTheme.sky[1]);
@@ -785,7 +845,6 @@ function draw() {
   ctx.fillStyle = skyGrad;
   ctx.fillRect(0, 0, W, H);
 
-  // Cloud layer
   cloudOffset += worldSpeed * 0.15;
   ctx.fillStyle = "rgba(255,255,255,0.45)";
   for (let i = 0; i < 4; i++) {
@@ -804,24 +863,21 @@ function draw() {
   weatherSystem.draw();
   drawPlane();
 
-  // Score display
   ctx.fillStyle = "#fff";
   ctx.font = "bold 28px sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(score, W / 2, 45);
 
-  // Current Country HUD Indicator
   ctx.font = "bold 16px sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.85)";
-  ctx.fillText(`${currentTheme.emoji} ${currentTheme.name.toUpperCase()}`, W / 2, 72);
+  ctx.fillText(`${currentTheme.emoji} ${translatedCountryName.toUpperCase()}`, W / 2, 72);
 
-  // Country Switch Announcement Banner
   if (bannerTimer > 0) {
     ctx.fillStyle = "rgba(0,0,0,0.65)";
     ctx.fillRect(W / 2 - 140, 95, 280, 50);
-    ctx.font = "bold 20px sans-serif";
+    ctx.font = "bold 18px sans-serif";
     ctx.fillStyle = "#f1c40f";
-    ctx.fillText(`Entering ${currentTheme.emoji} ${currentTheme.name}!`, W / 2, 127);
+    ctx.fillText(I18N[currentLang].entering(currentTheme.emoji, translatedCountryName), W / 2, 127);
   }
 
   const pct = ((worldSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * 100;
@@ -860,9 +916,11 @@ function endGame() {
     best = score;
     localStorage.setItem("geoFlyerBest", String(best));
   }
-  overlayTitle.textContent = "Crashed!";
-  overlayText.innerHTML = `You scored <strong>${score}</strong> points.<br>Coins Collected: 🪙 <strong>${totalCoinsCollected}</strong><br>Best Score: ${best}`;
-  startBtn.textContent = "Try Again";
+  
+  const txt = I18N[currentLang];
+  overlayTitle.textContent = txt.crashedTitle;
+  overlayText.innerHTML = txt.crashedText(score, totalCoinsCollected, best);
+  startBtn.textContent = txt.tryAgainBtn;
   overlay.style.display = "flex";
 }
 
