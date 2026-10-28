@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Geo Flyer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #0d1b2a;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #fff;
+    touch-action: none;
+    overflow: hidden;
+  }
+  h1 { margin-bottom: 8px; font-size: 1.4rem; letter-spacing: 0.5px; }
+  #game-wrap {
+    position: relative;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    border-radius: 12px;
+    overflow: hidden;
+    max-width: 100vw;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+  }
+  canvas {
+    display: block;
+    max-width: 100vw;
+    max-height: 75vh;
+    width: auto;
+    height: auto;
+  }
+  #hud-top {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 5;
+    pointer-events: none;
+  }
+  .hud-badge {
+    background: rgba(13, 27, 42, 0.75);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .hud-btn {
+    pointer-events: auto;
+    background: rgba(13, 27, 42, 0.75);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+  }
+  .hud-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+  }
+  #hud-controls {
+    display: flex;
+    gap: 6px;
+  }
+  
+  /* Overlays & Modals */
+  .modal-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: rgba(13, 27, 42, 0.92);
+    backdrop-filter: blur(8px);
+    padding: 24px;
+    z-index: 10;
+  }
+  .modal-overlay h2 { font-size: 1.8rem; margin-bottom: 10px; color: #f1c40f; text-shadow: 0 2px 10px rgba(241,196,15,0.3); }
+  .modal-overlay p { font-size: 0.95rem; opacity: 0.95; margin-bottom: 18px; line-height: 1.6; max-width: 360px; }
+
+  /* Main Menu Buttons Container */
+  .menu-btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    max-width: 260px;
+  }
+  
+  .btn-primary {
+    padding: 12px 28px;
+    font-size: 1.05rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 30px;
+    background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+    color: #0d1b2a;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(241,196,15,0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-primary:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(241,196,15,0.6);
+  }
+  
+  .btn-secondary {
+    padding: 10px 22px;
+    font-size: 0.95rem;
+    font-weight: bold;
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 30px;
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    transition: all 0.2s ease;
+  }
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.25);
+  }
+
+  /* Encyclopedia Guide & Collections Styles */
+  #guide-modal, #collections-modal {
+    display: none;
+    text-align: left;
+    justify-content: flex-start;
+    padding: 16px;
+    overflow-y: auto;
+  }
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+    padding-bottom: 8px;
+  }
+  .modal-header h3 { color: #f1c40f; font-size: 1.3rem; }
+  .landmark-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+    max-height: 70vh;
+    padding-right: 4px;
+  }
+
+  /* Collections Height Chart UI */
+  .collections-chart-container {
+    width: 100%;
+    height: 60vh;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-around;
+    gap: 8px;
+    padding: 30px 10px 10px 10px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.15);
+  }
+  .chart-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+  }
+  .chart-bar-wrap {
+    width: 100%;
+    max-width: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    position: relative;
+  }
+  .chart-bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    transition: height 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  }
+  .chart-bar.unlocked {
+    background: linear-gradient(180deg, #f1c40f 0%, #d35400 100%);
+    border: 1px solid #ffeaa7;
+  }
+  .chart-bar.locked {
+    background: linear-gradient(180deg, #4a5568 0%, #1a202c 100%);
+    border: 1px dashed rgba(255,255,255,0.3);
+    opacity: 0.5;
+  }
+  .chart-height-tag {
+    position: absolute;
+    top: -24px;
+    font-size: 0.72rem;
+    font-weight: bold;
+    color: #f1c40f;
+    white-space: nowrap;
+  }
+  .chart-label {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    text-align: center;
+    color: #cbd5e0;
+    font-weight: bold;
+    line-height: 1.1;
+  }
+
+  .landmark-card {
+    background: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    padding: 12px;
+    transition: border 0.2s ease;
+  }
+  .landmark-card.locked {
+    opacity: 0.45;
+    filter: grayscale(0.8);
+  }
+  .landmark-card.unlocked {
+    border-color: rgba(241, 196, 15, 0.5);
+    background: rgba(241, 196, 15, 0.05);
+  }
+  .card-title {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #f1c40f;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .card-subtitle { font-size: 0.8rem; color: #a0aec0; margin-bottom: 8px; }
+  .card-body { font-size: 0.85rem; line-height: 1.45; color: #e2e8f0; }
+  .card-body p { margin-bottom: 6px; }
+  .badge-locked {
+    font-size: 0.75rem;
+    background: #4a5568;
+    color: #cbd5e0;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+  .badge-unlocked {
+    font-size: 0.75rem;
+    background: #27ae60;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 10px;
+  }
+
+  #hint { margin-top: 10px; font-size: 0.85rem; opacity: 0.75; text-align: center; }
+  #speed-bar-wrap {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    width: 100px;
+    height: 10px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 2;
+  }
+  #speed-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #f1c40f, #e74c3c);
+    width: 50%;
+  }
+
+  .touch-controls {
+    display: none;
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+  }
+  .touch-btn {
+    pointer-events: auto;
+    position: absolute;
+    background: rgba(255,255,255,0.2);
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    font-weight: bold;
+    user-select: none;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  }
+  .touch-btn:active {
+    background: rgba(241, 196, 15, 0.4);
+    transform: scale(0.95);
+  }
+  .btn-dir { width: 54px; height: 54px; left: 20px; }
+  #btn-up { bottom: 84px; }
+  #btn-down { bottom: 20px; }
+  .btn-speed { width: 48px; height: 48px; right: 20px; }
+  #btn-fast { bottom: 84px; }
+  #btn-slow { bottom: 20px; }
+
+  @media (pointer: coarse) {
+    .touch-controls { display: block; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🌍 Geo Flyer</h1>
+
+<div id="game-wrap">
+  <div id="hud-top">
+    <div class="hud-badge"><span id="lbl-coins">🪙 Coins</span>: <span id="coin-count">0</span></div>
+    <div id="hud-controls">
+      <button class="hud-btn" id="pause-btn">⏸️</button>
+      <button class="hud-btn" id="collections-btn">🏔️ Collections</button>
+      <button class="hud-btn" id="guide-btn">📖 Guide</button>
+      <button class="hud-btn" id="lang-btn">🌐 TH</button>
+      <button class="hud-btn" id="mute-btn">🔊</button>
+    </div>
+  </div>
+
+  <canvas id="game" width="480" height="640"></canvas>
+  <div id="speed-bar-wrap"><div id="speed-bar"></div></div>
+
+  <div class="touch-controls">
+    <div class="touch-btn btn-dir" id="btn-up">▲</div>
+    <div class="touch-btn btn-dir" id="btn-down">▼</div>
+    <div class="touch-btn btn-speed" id="btn-fast">+</div>
+    <div class="touch-btn btn-speed" id="btn-slow">-</div>
+  </div>
+
+  <!-- Main Menu Overlay -->
+  <div id="main-menu" class="modal-overlay">
+    <h2 id="menu-title">🌍 Geo Flyer</h2>
+    <p id="menu-subtitle">Explore world peaks & unlock geography secrets!</p>
+    <div class="menu-btn-group">
+      <button id="start-btn" class="btn-primary">▶️ Start Flying</button>
+      <button id="menu-collections-btn" class="btn-secondary">🏔️ Mountain Collections</button>
+      <button id="menu-guide-btn" class="btn-secondary">📖 Field Guide</button>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="gameover-modal" class="modal-overlay" style="display: none;">
+    <h2 id="overlay-title">Crashed!</h2>
+    <p id="overlay-text"></p>
+    <div class="menu-btn-group">
+      <button id="retry-btn" class="btn-primary">🔄 Try Again</button>
+      <button id="gameover-main-menu-btn" class="btn-secondary">🏠 Main Menu</button>
+    </div>
+  </div>
+
+  <!-- Pause Modal Overlay -->
+  <div id="pause-modal" class="modal-overlay" style="display: none;">
+    <h2>⏸️ Game Paused</h2>
+    <p>Take a breath, pilot! Check out your mountain collection or field guide.</p>
+    <div class="menu-btn-group">
+      <button id="resume-btn" class="btn-primary">▶️ Resume</button>
+      <button id="pause-collections-btn" class="btn-secondary">🏔️ Mountain Collections</button>
+      <button id="pause-guide-btn" class="btn-secondary">📖 Field Guide</button>
+      <button id="pause-main-menu-btn" class="btn-secondary">🏠 Main Menu</button>
+    </div>
+  </div>
+
+  <!-- Field Guide Modal -->
+  <div id="guide-modal" class="modal-overlay">
+    <div class="modal-header">
+      <h3 id="guide-modal-title">📖 Landmark Field Guide</h3>
+      <button id="close-guide-btn" class="hud-btn">✖ Close</button>
+    </div>
+    <div class="landmark-list" id="landmark-list-container"></div>
+  </div>
+
+  <!-- Mountain Collections Comparison Modal -->
+  <div id="collections-modal" class="modal-overlay">
+    <div class="modal-header">
+      <h3 id="collections-modal-title">🏔️ Mountain Collections</h3>
+      <button id="close-collections-btn" class="hud-btn">✖ Close</button>
+    </div>
+    <p style="font-size: 0.8rem; margin-bottom: 10px; color: #a0aec0;">Relative Height Comparison (meters above sea level):</p>
+    <div class="collections-chart-container" id="collections-chart"></div>
+  </div>
+</div>
+
+<p id="hint"></p>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const W = canvas.width;
+const H = canvas.height;
+
+const VERTICAL_SPEED = 4;
+const NORMAL_PIPE_WIDTH = 125;
+const LANDMARK_PIPE_WIDTH = 340; // Extra wide base to ensure natural mountain slopes
+const PIPE_GAP = 195;
+const PIPE_SPACING = 280;
+
+const MIN_SPEED = 1.5;
+const MAX_SPEED = 7;
+const DEFAULT_SPEED = 3;
+const SPEED_ACCEL = 0.06;
+
+const SAFE_START_DISTANCE = 400;
+
+/* =========================================================
+   TRANSLATIONS & ENCYCLOPEDIA DATA
+   ========================================================= */
+let currentLang = "en";
+
+const I18N = {
+  en: {
+    title: "Geo Flyer",
+    coins: "🪙 Coins",
+    audioOn: "🔊 Audio: ON",
+    audioOff: "🔇 Audio: OFF",
+    startTitle: "Geo Flyer",
+    startText: `Steer with <strong>↑/W</strong> or touch <strong>▲/▼</strong>.<br>
+      Speed: <strong>A/D</strong> or <strong>+/-</strong>.<br>
+      Press <strong>P / Space / ⏸️</strong> to Pause.<br>
+      Fly past iconic peaks to unlock their <strong>Field Guide</strong>!`,
+    startBtn: "▶️ Start Flying",
+    crashedTitle: "Crashed!",
+    crashedText: (score, coins, best) => `Score: <strong>${score}</strong> points<br>Coins Collected: 🪙 <strong>${coins}</strong><br>Best Score: 🏆 <strong>${best}</strong>`,
+    tryAgainBtn: "🔄 Try Again",
+    hint: "Desktop: WASD/Arrows · Space/P: Pause · Mobile: Touch controls",
+    entering: (emoji, name) => `Entering ${emoji} ${name}!`,
+    landmarkTag: "FAMOUS LANDMARK",
+    lockedLabel: "🔒 Undiscovered (Fly past to unlock)",
+    unlockedLabel: "✅ Unlocked",
+    guideTitle: "📖 Landmark Field Guide",
+    collectionsTitle: "🏔️ Mountain Collections",
+    countries: {
+      Canada: "Canada",
+      Thailand: "Thailand",
+      Egypt: "Egypt",
+      Japan: "Japan",
+      Australia: "Australia"
+    }
+  },
+  th: {
+    title: "Geo Flyer",
+    coins: "🪙 เหรียญ",
+    audioOn: "🔊 เสียง: เปิด",
+    audioOff: "🔇 เสียง: ปิด",
+    startTitle: "Geo Flyer",
+    startText: `บังคับทิศทางด้วย <strong>↑/W</strong> หรือปุ่ม <strong>▲/▼</strong><br>
+      ปรับความเร็วด้วย <strong>A/D</strong> หรือปุ่ม <strong>+/-</strong><br>
+      กด <strong>P / Space / ⏸️</strong> เพื่อหยุดเกม<br>
+      บินผ่านยอดเขาสำคัญเพื่อปลดล็อก <strong>สารานุกรมภูมิศาสตร์</strong>!`,
+    startBtn: "▶️ เริ่มบิน",
+    crashedTitle: "เครื่องบินตก!",
+    crashedText: (score, coins, best) => `คะแนน: <strong>${score}</strong> คะแนน<br>เหรียญที่เก็บได้: 🪙 <strong>${coins}</strong><br>สถิติสูงสุด: 🏆 <strong>${best}</strong>`,
+    tryAgainBtn: "🔄 ลองอีกครั้ง",
+    hint: "คอมพิวเตอร์: ลูกศร/WASD · Space/P: หยุดเกม · มือถือ: ปุ่มกดบนหน้าจอ",
+    entering: (emoji, name) => `กำลังเข้าสู่ ${emoji} ประเทศ${name}!`,
+    landmarkTag: "สถานที่สำคัญระดับโลก",
+    lockedLabel: "🔒 ยังไม่ค้นพบ (บินผ่านในเกมเพื่อปลดล็อก)",
+    unlockedLabel: "✅ ปลดล็อกแล้ว",
+    guideTitle: "📖 สารานุกรมยอดเขาสำคัญ",
+    collectionsTitle: "🏔️ คอลเลกชันเปรียบเทียบความสูงยอดเขา",
+    countries: {
+      Canada: "แคนาดา",
+      Thailand: "ไทย",
+      Egypt: "อียิปต์",
+      Japan: "ญี่ปุ่น",
+      Australia: "ออสเตรเลีย"
+    }
+  }
+};
+
+const LANDMARK_DB = [
+  {
+    id: "LOGAN",
+    countryKey: "Canada",
+    emoji: "🇨🇦",
+    name: { en: "Mount Logan", th: "ยอดเขาโลแกน" },
+    metersHeight: 5959,
+    height: "5,959m (19,551 ft)",
+    location: { en: "Yukon, Canada (Kluane National Park)", th: "ยูคอน ประเทศแคนาดา (อุทยานแห่งชาติคลูเอนี)" },
+    importance: {
+      en: "Highest peak in Canada and the second-highest in North America after Denali.",
+      th: "เป็นยอดเขาที่สูงที่สุดในประเทศแคนาดา และสูงเป็นอันดับ 2 ในทวีปอเมริกาเหนือ"
+    },
+    funFact: {
+      en: "Mt. Logan has the largest base circumference of any non-volcanic mountain on Earth and continues to grow due to tectonic uplifting!",
+      th: "ยอดเขาโลแกนมีเส้นรอบวงฐานกว้างที่สุดในบรรดายอดเขาที่ไม่ใช่ภูเขาไฟบนโลก และยังคงสูงขึ้นเรื่อยๆ จากการเคลื่อนตัวของแผ่นเปลือกโลก!"
+    }
+  },
+  {
+    id: "FUJI",
+    countryKey: "Japan",
+    emoji: "🇯🇵",
+    name: { en: "Mount Fuji", th: "ภูเขาไฟฟูจิ" },
+    metersHeight: 3776,
+    height: "3,776m (12,389 ft)",
+    location: { en: "Shizuoka & Yamanashi, Japan", th: "จังหวัดชิซูโอกะและยามานาชิ ประเทศญี่ปุ่น" },
+    importance: {
+      en: "Japan's highest peak, an active stratovolcano, and a sacred UNESCO World Heritage cultural icon depicted in classical art.",
+      th: "ยอดเขาที่สูงที่สุดในญี่ปุ่น เป็นภูเขาไฟสลับชั้นที่ยังทรงพลัง และได้รับการขึ้นทะเบียนเป็นมรดกโลกทางวัฒนธรรมโดย UNESCO"
+    },
+    funFact: {
+      en: "Mt. Fuji is actually composed of three successive volcanoes stacked on top of each other: Komitake, Kofuji, and Shin-Fuji!",
+      th: "ภูเขาไฟฟูจิจริงๆ แล้วเกิดจากการซ้อนทับกันของภูเขาไฟ 3 ลูกตามยุคสมัย ได้แก่ โคมิตาเกะ, โคฟูจิ และชินฟูจิ!"
+    }
+  },
+  {
+    id: "INTHANON",
+    countryKey: "Thailand",
+    emoji: "🇹🇭",
+    name: { en: "Doi Inthanon", th: "ดอยอินทนนท์" },
+    metersHeight: 2565,
+    height: "2,565m (8,415 ft)",
+    location: { en: "Chiang Mai Province, Thailand", th: "จังหวัดเชียงใหม่ ประเทศไทย" },
+    importance: {
+      en: "Known as 'The Roof of Thailand', home to mist-shrouded rainforests and the Royal Twin Stupas built for King Rama IX and Queen Sirikit.",
+      th: "ฉายา 'หลังคาสยาม' เป็นที่ตั้งของพระมหาธาตุนภเมทนีดลและพระมหาธาตุนภพลภูมิสิริ ล้อมรอบด้วยป่าเมฆธรรมชาติอันอุดมสมบูรณ์"
+    },
+    funFact: {
+      en: "Temperatures at the summit can drop below freezing (0°C) during winter, producing frost known locally as 'Mae Khaning'!",
+      th: "ในฤดูหนาว อุณหภูมิบนยอดดอยสามารถลดลงต่ำกว่า 0 องศาเซลเซียส จนเกิดแม่คะนิ้ง (เหมยขาบ) หรือน้ำค้างแข็งกระจายทั่วพื้นที่!"
+    }
+  },
+  {
+    id: "SINAI",
+    countryKey: "Egypt",
+    emoji: "🇪🇬",
+    name: { en: "Mount Sinai", th: "เขาซีนาย" },
+    metersHeight: 2285,
+    height: "2,285m (7,497 ft)",
+    location: { en: "Sinai Peninsula, Egypt", th: "คาบสมุทรซีนาย ประเทศอียิปต์" },
+    importance: {
+      en: "A sacred mountain revered in Abrahamic religions as the biblical location where Moses received the Ten Commandments.",
+      th: "ภูเขาศักดิ์สิทธิ์ตามความเชื่อทางศาสนา เชื่อว่าเป็นสถานที่ซึ่งโมเสสได้รับพระบัญญัติ 10 ประการ"
+    },
+    funFact: {
+      en: "Pilgrims traditionally climb the 750 'Steps of Repentance' carved into the sandstone by monks to reach the summit for sunrise!",
+      th: "นักแสวงบุญนิยมเดินบันได 750 ขั้นที่เรียกว่า 'บันไดแห่งการสำนึกผิด' ซึ่งสลักโดยเหล่านักบวช เพื่อขึ้นไปชมพระอาทิตย์ขึ้นบนยอดเขา!"
+    }
+  },
+  {
+    id: "KOSCIUSZKO",
+    countryKey: "Australia",
+    emoji: "🇦🇺",
+    name: { en: "Mount Kosciuszko", th: "ยอดเขาคอสซิอุสโก" },
+    metersHeight: 2228,
+    height: "2,228m (7,310 ft)",
+    location: { en: "New South Wales, Australia (Snowy Mountains)", th: "รัฐนิวเซาท์เวลส์ ประเทศออสเตรเลีย (เทือกเขาสโนวี)" },
+    importance: {
+      en: "The highest mainland peak in Australia, forming the heart of Kosciuszko National Park's rare alpine ecosystem.",
+      th: "ยอดเขาที่สูงที่สุดบนแผ่นดินใหญ่ของประเทศออสเตรเลีย เป็นศูนย์กลางของระบบนิเวศอัลไพน์ในอุทยานแห่งชาติคอสซิอุสโก"
+    },
+    funFact: {
+      en: "Because of its smooth rounded plateau shape, it is considered one of the easiest 'Seven Summits' peaks in the world to hike!",
+      th: "ด้วยลักษณะยอดเขาที่เป็นที่ราบสูงความชันน้อย จึงได้รับการยกย่องว่าเป็นหนึ่งในยอดเขา Seven Summits ที่ปีนง่ายที่สุดในโลก!"
+    }
+  }
+];
+
+let unlockedLandmarks = new Set(); // Stores IDs of landmarks passed
+
+/* =========================================================
+   COUNTRY THEMES & DEFINITIONS
+   ========================================================= */
+const COUNTRIES = [
+  {
+    emoji: "🇨🇦", key: "Canada", weather: "snow",
+    sky: ["#3a7bd5", "#73a5ff", "#bbd2c5"],
+    base: "#2d3a2a", mid: "#505852", peak: "#a0aab2", snow: "#ffffff", tree: "#1d2e1c",
+    hasSnow: true,
+    landmark: LANDMARK_DB[0]
+  },
+  {
+    emoji: "🇹🇭", key: "Thailand", weather: "rain",
+    sky: ["#00b4db", "#0083b0", "#a8e063"],
+    base: "#1b4332", mid: "#2d6a4f", peak: "#52b788", snow: null, tree: "#081c15",
+    hasSnow: false,
+    landmark: LANDMARK_DB[2]
+  },
+  {
+    emoji: "🇪🇬", key: "Egypt", weather: "sand",
+    sky: ["#f2994a", "#f2c94c", "#ffeb3b"],
+    base: "#8d5b4c", mid: "#b07d62", peak: "#deab90", snow: null, tree: "#5c3d2e",
+    hasSnow: false,
+    landmark: LANDMARK_DB[3]
+  },
+  {
+    emoji: "🇯🇵", key: "Japan", weather: "snow",
+    sky: ["#2c1654", "#6d327c", "#f7a072"],
+    base: "#1d1a33", mid: "#363354", peak: "#6a668c", snow: "#ffffff", tree: "#ffb703",
+    hasSnow: true,
+    landmark: LANDMARK_DB[1]
+  },
+  {
+    emoji: "🇦🇺", key: "Australia", weather: "rain",
+    sky: ["#11998e", "#38ef7d", "#f45c43"],
+    base: "#582f0e", mid: "#7f4f24", peak: "#936639", snow: null, tree: "#333d29",
+    hasSnow: false,
+    landmark: LANDMARK_DB[4]
+  }
+];
+
+let currentCountryIndex = 0;
+let landmarkSpawnedForCurrentCountry = false;
+
+/* =========================================================
+   WEATHER SYSTEM
+   ========================================================= */
+class WeatherSystem {
+  constructor() {
+    this.particles = [];
+    this.maxParticles = 70;
+    this.init();
+  }
+
+  init() {
+    this.particles = [];
+    for (let i = 0; i < this.maxParticles; i++) {
+      this.particles.push(this.createParticle(true));
+    }
+  }
+
+  createParticle(randomY = false) {
+    const weatherType = COUNTRIES[currentCountryIndex].weather;
+    return {
+      x: Math.random() * (W + 100) - 50,
+      y: randomY ? Math.random() * H : -10,
+      radius: Math.random() * 2.5 + 1,
+      length: Math.random() * 14 + 8,
+      speedY: weatherType === 'rain' ? Math.random() * 8 + 7 : Math.random() * 1.8 + 0.8,
+      speedX: weatherType === 'rain' ? -2.5 : Math.random() * 0.5 - 0.25,
+      swayOffset: Math.random() * Math.PI * 2,
+      opacity: Math.random() * 0.6 + 0.3
+    };
+  }
+
+  update(worldSpeed) {
+    const weatherType = COUNTRIES[currentCountryIndex].weather;
+    this.particles.forEach(p => {
+      p.y += p.speedY;
+      p.x += p.speedX - (worldSpeed * 0.3);
+
+      if (weatherType === 'snow') {
+        p.swayOffset += 0.02;
+        p.x += Math.sin(p.swayOffset) * 0.4;
+      }
+
+      if (p.y > H || p.x < -60) {
+        Object.assign(p, this.createParticle(false));
+      }
+    });
+  }
+
+  draw() {
+    const weatherType = COUNTRIES[currentCountryIndex].weather;
+    ctx.save();
+    this.particles.forEach(p => {
+      ctx.beginPath();
+      if (weatherType === 'snow') {
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${p.opacity})`;
+        ctx.fill();
+      } else if (weatherType === 'rain') {
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(p.x + p.speedX, p.y + p.length);
+        ctx.strokeStyle = `rgba(180, 225, 255, ${p.opacity})`;
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      } else if (weatherType === 'sand') {
+        ctx.arc(p.x, p.y, p.radius * 0.8, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(235, 180, 110, ${p.opacity * 0.8})`;
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
+}
+
+const weatherSystem = new WeatherSystem();
+
+/* =========================================================
+   AUDIO SYSTEM
+   ========================================================= */
+let audioCtx = null;
+let engineOsc = null;
+let engineGain = null;
+let isMuted = false;
+
+const muteBtn = document.getElementById("mute-btn");
+const langBtn = document.getElementById("lang-btn");
+const pauseBtn = document.getElementById("pause-btn");
+const guideBtn = document.getElementById("guide-btn");
+const collectionsBtn = document.getElementById("collections-btn");
+
+muteBtn.addEventListener("click", () => {
+  isMuted = !isMuted;
+  muteBtn.textContent = isMuted ? I18N[currentLang].audioOff : I18N[currentLang].audioOn;
+  if (isMuted) stopEngineSound();
+  else if (gameRunning && !isPaused) startEngineSound();
+});
+
+langBtn.addEventListener("click", () => {
+  currentLang = currentLang === "en" ? "th" : "en";
+  langBtn.textContent = currentLang === "en" ? "🌐 TH" : "🌐 EN";
+  updateUINotifications();
+  renderGuideList();
+  renderCollectionsChart();
+});
+
+function updateUINotifications() {
+  const txt = I18N[currentLang];
+  document.getElementById("lbl-coins").textContent = txt.coins;
+  muteBtn.textContent = isMuted ? txt.audioOff : txt.audioOn;
+  document.getElementById("hint").textContent = txt.hint;
+}
+
+function initAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+
+function startEngineSound() {
+  if (!audioCtx || isMuted) return;
+  stopEngineSound();
+
+  engineOsc = audioCtx.createOscillator();
+  engineGain = audioCtx.createGain();
+
+  engineOsc.type = 'sawtooth';
+  engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime);
+  engineGain.gain.setValueAtTime(0.03, audioCtx.currentTime);
+
+  engineOsc.connect(engineGain);
+  engineGain.connect(audioCtx.destination);
+  engineOsc.start();
+}
+
+function updateEnginePitch(speed) {
+  if (engineOsc && audioCtx && !isMuted) {
+    const pitch = 50 + (speed - MIN_SPEED) * 18;
+    engineOsc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.1);
+  }
+}
+
+function stopEngineSound() {
+  if (engineOsc) {
+    try { engineOsc.stop(); engineOsc.disconnect(); } catch(e){}
+    engineOsc = null;
+  }
+}
+
+function playScoreSound() {
+  if (!audioCtx || isMuted) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+  osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
+
+  gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.25);
+}
+
+function playCoinSound() {
+  if (!audioCtx || isMuted) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(987.77, audioCtx.currentTime);
+  osc.frequency.setValueAtTime(1318.51, audioCtx.currentTime + 0.08);
+
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.25);
+}
+
+function playCountrySwitchSound() {
+  if (!audioCtx || isMuted) return;
+  const notes = [523.25, 659.25, 783.99, 1046.50];
+  notes.forEach((freq, idx) => {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.08);
+
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime + idx * 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.08 + 0.2);
+
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + idx * 0.08);
+    osc.stop(audioCtx.currentTime + idx * 0.08 + 0.2);
+  });
+}
+
+function playCrashSound() {
+  if (!audioCtx || isMuted) return;
+  const bufferSize = audioCtx.sampleRate * 0.4;
+  const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i++) {
+    data[i] = Math.random() * 2 - 1;
+  }
+
+  const noise = audioCtx.createBufferSource();
+  noise.buffer = buffer;
+
+  const filter = audioCtx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.setValueAtTime(800, audioCtx.currentTime);
+  filter.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 0.4);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+
+  noise.connect(filter);
+  filter.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  noise.start();
+}
+
+/* =========================================================
+   GAME ENGINE & STATE
+   ========================================================= */
+let plane, pipes, coinsList, score, totalCoinsCollected, best, gameRunning, isPaused;
+let worldSpeed;
+let distanceSinceLastPipe;
+let bannerTimer = 0;
+
+const keys = { up: false, down: false, left: false, right: false };
+
+function resetGame() {
+  plane = { x: 90, y: H / 2, size: 22 };
+  pipes = [];
+  coinsList = [];
+  score = 0;
+  totalCoinsCollected = 0;
+  currentCountryIndex = 0;
+  landmarkSpawnedForCurrentCountry = false;
+  gameRunning = false;
+  isPaused = false;
+  worldSpeed = DEFAULT_SPEED;
+  distanceSinceLastPipe = -SAFE_START_DISTANCE;
+  bannerTimer = 120;
+  best = Number(localStorage.getItem("geoFlyerBest") || 0);
+  document.getElementById("coin-count").innerText = totalCoinsCollected;
+  weatherSystem.init();
+  updateUINotifications();
+}
+
+const RIDGE_X_FRACS = [0, 0.16, 0.34, 0.5, 0.66, 0.84, 1];
+
+function makeRidge() {
+  return [0, 0.35 + Math.random()*0.25, 0.55 + Math.random()*0.3, 1, 0.55 + Math.random()*0.3, 0.35 + Math.random()*0.25, 0];
+}
+
+function spawnPipe() {
+  const margin = 60;
+  const countryTheme = COUNTRIES[currentCountryIndex];
+  
+  const isLandmark = !landmarkSpawnedForCurrentCountry;
+  if (isLandmark) {
+    landmarkSpawnedForCurrentCountry = true;
+  }
+
+  const width = isLandmark ? LANDMARK_PIPE_WIDTH : NORMAL_PIPE_WIDTH;
+  
+  const gapCenter = isLandmark 
+    ? H * 0.36 
+    : margin + Math.random() * (H - margin * 2 - PIPE_GAP);
+
+  const topXOffset = isLandmark ? 0 : (Math.random() * 40 - 20);
+  const botXOffset = isLandmark ? 0 : (Math.random() * 40 - 20);
+
+  pipes.push({
+    x: W,
+    width: width,
+    gapTop: gapCenter - PIPE_GAP / 2,
+    gapBottom: gapCenter + PIPE_GAP / 2,
+    passed: false,
+    isLandmark: isLandmark,
+    hasTopMountain: !isLandmark,
+    topXOffset: topXOffset,
+    botXOffset: botXOffset,
+    topRidge: makeRidge(),
+    bottomRidge: makeRidge(),
+    country: countryTheme,
+    treeSeed: Math.random()
+  });
+
+  if (Math.random() > 0.2) {
+    coinsList.push({
+      x: W + width / 2,
+      y: gapCenter + (Math.random() * 40 - 20),
+      radius: 10,
+      collected: false
+    });
+  }
+}
+
+function setKey(code, isDown) {
+  switch (code) {
+    case "ArrowUp": case "KeyW": keys.up = isDown; break;
+    case "ArrowDown": case "KeyS": keys.down = isDown; break;
+    case "KeyA": keys.left = isDown; break;
+    case "KeyD": keys.right = isDown; break;
+  }
+}
+document.addEventListener("keydown", (e) => {
+  if (["ArrowUp","ArrowDown","KeyW","KeyS","KeyA","KeyD"].includes(e.code)) e.preventDefault();
+  
+  if (e.code === "KeyP" || e.code === "Space") {
+    togglePause();
+    return;
+  }
+  setKey(e.code, true);
+});
+document.addEventListener("keyup", (e) => setKey(e.code, false));
+
+function bindTouch(id, keyName) {
+  const el = document.getElementById(id);
+  el.addEventListener("touchstart", (e) => { e.preventDefault(); keys[keyName] = true; });
+  el.addEventListener("touchend", (e) => { e.preventDefault(); keys[keyName] = false; });
+}
+bindTouch("btn-up", "up");
+bindTouch("btn-down", "down");
+bindTouch("btn-fast", "right");
+bindTouch("btn-slow", "left");
+
+/* =========================================================
+   ACCURATE POLYGON HITBOX COLLISION DETECTION
+   ========================================================= */
+function getMountainPolygon(pipe, isTop) {
+  // Landmarks use the exact same silhouette that is drawn on screen
+  if (pipe.isLandmark && !isTop) return getLandmarkPoints(pipe);
+
+  const points = [];
+  const pW = pipe.width;
+  const pX = pipe.x + (isTop ? pipe.topXOffset : pipe.botXOffset);
+  const baseY = isTop ? 0 : H;
+  const tipY = isTop ? pipe.gapTop : pipe.gapBottom;
+
+  const ridge = isTop ? pipe.topRidge : pipe.bottomRidge;
+  const yAt = (hFrac) => baseY + (tipY - baseY) * hFrac;
+  points.push({x: pX, y: baseY});
+  RIDGE_X_FRACS.forEach((xf, i) => {
+    points.push({x: pX + xf * pW, y: yAt(ridge[i])});
+  });
+  points.push({x: pX + pW, y: baseY});
+  return points;
+}
+
+function linesIntersect(p1, p2, p3, p4) {
+  const ccw = (A, B, C) => (C.y - A.y) * (B.x - A.x) > (B.y - A.y) * (C.x - A.x);
+  return (ccw(p1, p3, p4) !== ccw(p2, p3, p4)) && (ccw(p1, p2, p3) !== ccw(p1, p2, p4));
+}
+
+function checkPlaneHitsPoly(px, py, radius, poly) {
+  const planeBox = [
+    {x: px - radius, y: py - radius},
+    {x: px + radius, y: py - radius},
+    {x: px + radius, y: py + radius},
+    {x: px - radius, y: py + radius}
+  ];
+
+  for (let i = 0; i < poly.length - 1; i++) {
+    const m1 = poly[i];
+    const m2 = poly[i + 1];
+
+    for (let j = 0; j < 4; j++) {
+      const b1 = planeBox[j];
+      const b2 = planeBox[(j + 1) % 4];
+      if (linesIntersect(m1, m2, b1, b2)) return true;
+    }
+  }
+  return false;
+}
+
+function update() {
+  if (!gameRunning || isPaused) return;
+
+  if (keys.up) plane.y -= VERTICAL_SPEED;
+  if (keys.down) plane.y += VERTICAL_SPEED;
+
+  const halfSize = plane.size / 2;
+  plane.y = Math.max(halfSize, Math.min(H - halfSize, plane.y));
+
+  if (keys.left) worldSpeed = Math.max(MIN_SPEED, worldSpeed - SPEED_ACCEL);
+  if (keys.right) worldSpeed = Math.min(MAX_SPEED, worldSpeed + SPEED_ACCEL);
+
+  updateEnginePitch(worldSpeed);
+  weatherSystem.update(worldSpeed);
+
+  distanceSinceLastPipe += worldSpeed;
+  if (distanceSinceLastPipe >= PIPE_SPACING) {
+    spawnPipe();
+    distanceSinceLastPipe = 0;
+  }
+
+  pipes.forEach(pipe => {
+    pipe.x -= worldSpeed;
+
+    if (!pipe.passed && pipe.x + pipe.width < plane.x) {
+      pipe.passed = true;
+      score++;
+      
+      // Unlock landmark in Field Guide & Collections if passed!
+      if (pipe.isLandmark && pipe.country && pipe.country.landmark) {
+        unlockedLandmarks.add(pipe.country.landmark.id);
+      }
+
+      if (score > 0 && score % 12 === 0) {
+        currentCountryIndex = (currentCountryIndex + 1) % COUNTRIES.length;
+        landmarkSpawnedForCurrentCountry = false;
+        bannerTimer = 120;
+        playCountrySwitchSound();
+      } else {
+        playScoreSound();
+      }
+    }
+
+    if (pipe.hasTopMountain) {
+      const topPoly = getMountainPolygon(pipe, true);
+      if (checkPlaneHitsPoly(plane.x, plane.y, halfSize * 0.7, topPoly)) endGame();
+    }
+    const botPoly = getMountainPolygon(pipe, false);
+    if (checkPlaneHitsPoly(plane.x, plane.y, halfSize * 0.7, botPoly)) endGame();
+  });
+
+  for (let i = coinsList.length - 1; i >= 0; i--) {
+    let coin = coinsList[i];
+    coin.x -= worldSpeed;
+
+    const dx = plane.x - coin.x;
+    const dy = plane.y - coin.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (!coin.collected && dist < halfSize + coin.radius) {
+      coin.collected = true;
+      totalCoinsCollected++;
+      score++;
+      document.getElementById("coin-count").innerText = totalCoinsCollected;
+      playCoinSound();
+
+      if (score > 0 && score % 12 === 0) {
+        currentCountryIndex = (currentCountryIndex + 1) % COUNTRIES.length;
+        landmarkSpawnedForCurrentCountry = false;
+        bannerTimer = 120;
+        playCountrySwitchSound();
+      }
+    }
+
+    if (coin.x < -30 || coin.collected) {
+      coinsList.splice(i, 1);
+    }
+  }
+
+  pipes = pipes.filter(p => p.x + p.width > 0);
+  if (bannerTimer > 0) bannerTimer--;
+}
+
+let cloudOffset = 0;
+
+/* =========================================================
+   THAI TEMPLE STUPAS & REDESIGNED LANDMARK RENDERING
+   ========================================================= */
+
+// Detailed Thai Pagoda & Pavilion matching Ref Image 1
+function drawThaiLandmarkScene(x, y, scale = 1) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Background Line-art Mountain Peaks (Ref 1 style)
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+  ctx.lineWidth = 2.5;
+  ctx.fillStyle = "rgba(45, 106, 79, 0.65)";
+  
+  ctx.beginPath();
+  ctx.moveTo(80, 0);
+  ctx.lineTo(130, -90);
+  ctx.lineTo(160, -140);
+  ctx.lineTo(190, -80);
+  ctx.lineTo(240, -160);
+  ctx.lineTo(270, -70);
+  ctx.lineTo(310, -110);
+  ctx.lineTo(340, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Background Cloud Arcs (Ref 1)
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(140, -130, 25, Math.PI, 0);
+  ctx.arc(180, -130, 20, Math.PI, 0);
+  ctx.stroke();
+
+  // --- 1. Multi-tiered Main Thai Pagoda (Left - Ref Image 1) ---
+  ctx.save();
+  ctx.translate(60, 0);
+
+  // Base platform steps
+  ctx.fillStyle = "#2d3748";
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = 2;
+  ctx.fillRect(-50, -15, 100, 15);
+  ctx.strokeRect(-50, -15, 100, 15);
+
+  // Lower Tier Windows & Columns
+  ctx.fillStyle = "#3a4a5e";
+  ctx.fillRect(-42, -50, 84, 35);
+  ctx.strokeRect(-42, -50, 84, 35);
+
+  // Arched Windows
+  ctx.fillStyle = "#f1c40f";
+  for (let i = -30; i <= 30; i += 20) {
+    ctx.beginPath();
+    ctx.rect(i - 5, -42, 10, 18);
+    ctx.fill();
+    ctx.stroke();
+  }
+
+  // Tier 2 Roof
+  ctx.fillStyle = "#d35400";
+  ctx.beginPath();
+  ctx.moveTo(-50, -50);
+  ctx.lineTo(-30, -68);
+  ctx.lineTo(30, -68);
+  ctx.lineTo(50, -50);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Tier 2 Body
+  ctx.fillStyle = "#3a4a5e";
+  ctx.fillRect(-28, -95, 56, 27);
+  ctx.strokeRect(-28, -95, 56, 27);
+
+  // Tier 3 Roof
+  ctx.fillStyle = "#d35400";
+  ctx.beginPath();
+  ctx.moveTo(-36, -95);
+  ctx.lineTo(-20, -112);
+  ctx.lineTo(20, -112);
+  ctx.lineTo(36, -95);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Octagonal Bell Base
+  ctx.fillStyle = "#f1c40f";
+  ctx.beginPath();
+  ctx.moveTo(-18, -112);
+  ctx.lineTo(-14, -145);
+  ctx.lineTo(14, -145);
+  ctx.lineTo(18, -112);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Main Tall Spire
+  ctx.beginPath();
+  ctx.moveTo(-12, -145);
+  ctx.lineTo(-2, -220);
+  ctx.lineTo(2, -220);
+  ctx.lineTo(12, -145);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Ring details on spire
+  for (let r = -155; r >= -210; r -= 10) {
+    ctx.beginPath();
+    ctx.moveTo(-8 + (r + 155) * 0.1, r);
+    ctx.lineTo(8 - (r + 155) * 0.1, r);
+    ctx.stroke();
+  }
+
+  // Side Mini Spires
+  [-38, 38].forEach(sx => {
+    ctx.fillStyle = "#f1c40f";
+    ctx.beginPath();
+    ctx.moveTo(sx - 6, -68);
+    ctx.lineTo(sx - 1, -115);
+    ctx.lineTo(sx + 1, -115);
+    ctx.lineTo(sx + 6, -68);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  ctx.restore();
+
+  // --- 2. Thai Pavilion / Ubosot (Right - Ref Image 1) ---
+  ctx.save();
+  ctx.translate(280, 0);
+
+  // Base
+  ctx.fillStyle = "#2d3748";
+  ctx.fillRect(-35, -12, 70, 12);
+  ctx.strokeRect(-35, -12, 70, 12);
+
+  // Wall
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(-28, -42, 56, 30);
+  ctx.strokeRect(-28, -42, 56, 30);
+
+  // Doors & Pillars
+  ctx.fillStyle = "#e74c3c";
+  ctx.fillRect(-8, -36, 16, 24);
+  ctx.strokeRect(-8, -36, 16, 24);
+
+  // Curved Thai Gabled Roof
+  ctx.fillStyle = "#c0392b";
+  ctx.beginPath();
+  ctx.moveTo(-40, -42);
+  ctx.quadraticCurveTo(-20, -65, 0, -75);
+  ctx.quadraticCurveTo(20, -65, 40, -42);
+  ctx.lineTo(32, -42);
+  ctx.quadraticCurveTo(15, -55, 0, -62);
+  ctx.quadraticCurveTo(-15, -55, -32, -42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.restore();
+
+  // Small trees at ground level (Ref 1)
+  [140, 165, 190, 215, 235].forEach((tx, idx) => {
+    ctx.fillStyle = "#27ae60";
+    ctx.beginPath();
+    ctx.arc(tx, -10 - (idx % 2) * 5, 8 + (idx % 3) * 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  });
+
+  ctx.restore();
+}
+
+/* =========================================================
+   LANDMARK MOUNTAINS (redesigned)
+   Every landmark is described ONCE as a silhouette. The same
+   points are used to DRAW the mountain and to detect CRASHES,
+   so what you see is exactly what you can hit.
+   Each point is [xFrac, yFrac]:
+     xFrac: 0 = left edge of the mountain, 1 = right edge
+     yFrac: 0 = summit (top),               1 = ground
+   ========================================================= */
+const LANDMARK_SHAPES = {
+  // Tall, concave volcano cone with a flat crater rim
+  FUJI: [
+    [0, 1], [0.06, 0.96], [0.14, 0.86], [0.22, 0.70], [0.30, 0.50], [0.37, 0.30],
+    [0.43, 0.12], [0.47, 0.02], [0.49, 0], [0.51, 0], [0.53, 0.02], [0.57, 0.12],
+    [0.63, 0.30], [0.70, 0.50], [0.78, 0.70], [0.86, 0.86], [0.94, 0.96], [1, 1]
+  ],
+  // Rounded forested massif, with the two summit stupas built into the outline
+  INTHANON: [
+    [0, 1], [0.05, 0.86], [0.12, 0.68], [0.20, 0.52], [0.29, 0.38], [0.36, 0.28],
+    [0.40, 0.20], [0.415, 0.15], [0.44, 0], [0.465, 0.15], [0.50, 0.17], [0.535, 0.15],
+    [0.56, 0], [0.585, 0.15], [0.62, 0.21], [0.68, 0.30], [0.76, 0.44], [0.85, 0.64],
+    [0.94, 0.85], [1, 1]
+  ],
+  // Rugged granite peaks
+  SINAI: [
+    [0, 1], [0.07, 0.86], [0.14, 0.68], [0.21, 0.54], [0.27, 0.44], [0.32, 0.34],
+    [0.36, 0.36], [0.41, 0.20], [0.46, 0.08], [0.50, 0], [0.54, 0.08], [0.58, 0.06],
+    [0.63, 0.22], [0.67, 0.20], [0.73, 0.38], [0.80, 0.50], [0.87, 0.68], [0.94, 0.85], [1, 1]
+  ],
+  // Huge glaciated massif with a broad summit
+  LOGAN: [
+    [0, 1], [0.07, 0.88], [0.15, 0.70], [0.24, 0.52], [0.30, 0.38], [0.36, 0.24],
+    [0.42, 0.10], [0.48, 0.02], [0.52, 0], [0.58, 0.05], [0.64, 0.16], [0.70, 0.28],
+    [0.76, 0.30], [0.82, 0.46], [0.90, 0.70], [0.96, 0.88], [1, 1]
+  ],
+  // Gentle, rounded alpine dome
+  KOSCIUSZKO: [
+    [0, 1], [0.06, 0.86], [0.13, 0.64], [0.21, 0.44], [0.30, 0.27], [0.39, 0.14],
+    [0.47, 0.06], [0.55, 0.02], [0.62, 0], [0.69, 0.03], [0.76, 0.10], [0.83, 0.24],
+    [0.90, 0.46], [0.96, 0.72], [1, 1]
+  ]
+};
+
+// Decoration positions are created ONCE here (not every frame), so nothing flickers.
+const INTHANON_TREES = Array.from({ length: 90 }, () => ({
+  xf: Math.random(), yf: 0.14 + Math.random() * 0.86,
+  r: 5 + Math.random() * 6, shade: Math.random()
+})).sort((a, b) => a.yf - b.yf);
+
+const KOSCI_TUSSOCK = Array.from({ length: 55 }, () => ({
+  xf: Math.random(), yf: 0.08 + Math.random() * 0.94
+}));
+
+function getLandmarkPoints(pipe) {
+  const shape = LANDMARK_SHAPES[pipe.country.landmark.id];
+  const tipY = pipe.gapBottom;
+  const h = H - tipY;
+  return shape.map(([xf, yf]) => ({ x: pipe.x + xf * pipe.width, y: tipY + yf * h }));
+}
+
+/* ---------- small drawing helpers ---------- */
+function tracePoints(points) {
+  ctx.beginPath();
+  points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+  ctx.closePath();
+}
+
+// Darkens everything to the right of a zig-zag ridge line (light comes from the left).
+// The mountain is clipped first, so this only ever shades the mountain itself.
+function drawFacetShadow(sx, topY, baseY, drift, jag, farX, rgb, alpha) {
+  ctx.fillStyle = `rgba(${rgb},${alpha})`;
+  ctx.beginPath();
+  ctx.moveTo(sx, topY);
+  const steps = 6;
+  for (let k = 1; k <= steps; k++) {
+    const t = k / steps;
+    const x = sx + drift * t + (k % 2 === 0 ? -jag : jag) * (1 - t * 0.3);
+    ctx.lineTo(x, topY + (baseY - topY) * t);
+  }
+  ctx.lineTo(farX, baseY);
+  ctx.lineTo(farX, topY);
+  ctx.closePath();
+  ctx.fill();
+}
+
+// Fills the area above an irregular lower edge (snow caps, glaciers).
+function drawSnowCap(m, drips, minYf, rangeYf, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(m.pX - 5, m.tipY - 5);
+  ctx.lineTo(m.pX + m.pW + 5, m.tipY - 5);
+  const n = drips.length - 1;
+  for (let i = 0; i <= n; i++) {
+    const xf = 1 - i / n;
+    ctx.lineTo(m.fx(xf), m.fy(minYf + drips[i] * rangeYf));
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function fillMountainGradient(m, stops) {
+  const g = ctx.createLinearGradient(0, m.tipY, 0, H);
+  stops.forEach(([pos, color]) => g.addColorStop(pos, color));
+  ctx.fillStyle = g;
+  ctx.fillRect(m.pX - 2, m.tipY - 2, m.pW + 4, m.h + 4);
+}
+
+/* ---------- one painter per landmark ---------- */
+function paintFuji(m) {
+  fillMountainGradient(m, [[0, "#9aa9dd"], [0.4, "#566aa8"], [1, "#1e2a55"]]);
+
+  drawSnowCap(m, [0.20, 0.55, 0.30, 0.75, 0.35, 1.0, 0.40, 0.70, 0.25, 0.60, 0.20], 0.17, 0.2, "#fff7fb");
+
+  const far = m.pX + m.pW + 10;
+  drawFacetShadow(m.fx(0.5), m.tipY, H, 16, 10, far, "20,20,70", 0.28);
+  drawFacetShadow(m.fx(0.5), m.tipY, H, 44, 6, far, "20,20,70", 0.14);
+
+  // forested foothills (two rows of rounded treetops)
+  [[0.80, "#1f5a3a"], [0.86, "#154530"]].forEach(([yf, color], row) => {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(m.pX - 10, H);
+    ctx.lineTo(m.pX - 10, m.fy(yf));
+    for (let bx = m.pX - 10 - row * 12; bx < m.pX + m.pW + 10; bx += 24) {
+      ctx.quadraticCurveTo(bx + 12, m.fy(yf) - 16, bx + 24, m.fy(yf));
+    }
+    ctx.lineTo(m.pX + m.pW + 20, H);
+    ctx.closePath();
+    ctx.fill();
+  });
+
+  // lake at the foot of the mountain
+  const lake = ctx.createLinearGradient(0, H - 34, 0, H);
+  lake.addColorStop(0, "#58b0e0");
+  lake.addColorStop(1, "#2a6fa3");
+  ctx.fillStyle = lake;
+  ctx.fillRect(m.pX - 10, H - 34, m.pW + 20, 34);
+  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.lineWidth = 2;
+  [0, 1, 2].forEach(i => {
+    for (let x = m.pX + 10 + i * 14; x < m.pX + m.pW - 20; x += 62) {
+      ctx.beginPath();
+      ctx.moveTo(x, H - 24 + i * 8);
+      ctx.lineTo(x + 26 - i * 4, H - 24 + i * 8);
+      ctx.stroke();
+    }
+  });
+}
+
+function paintInthanon(m) {
+  fillMountainGradient(m, [[0, "#6dbb8a"], [0.35, "#2f8a5a"], [1, "#0b3321"]]);
+
+  // rainforest canopy: rounded treetops, lower ones drawn in front
+  INTHANON_TREES.forEach(t => {
+    ctx.fillStyle = `hsl(${138 + t.shade * 18}, ${42 + t.shade * 18}%, ${36 - t.yf * 18 + t.shade * 6}%)`;
+    ctx.beginPath();
+    ctx.arc(m.fx(t.xf), m.fy(t.yf), t.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  drawFacetShadow(m.fx(0.5), m.tipY, H, 10, 12, m.pX + m.pW + 10, "0,25,15", 0.28);
+
+  // drifting cloud-forest mist across the mid slopes
+  const mist = ctx.createLinearGradient(0, m.fy(0.45), 0, m.fy(0.78));
+  mist.addColorStop(0, "rgba(255,255,255,0)");
+  mist.addColorStop(0.5, "rgba(255,255,255,0.33)");
+  mist.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = mist;
+  ctx.fillRect(m.pX - 2, m.fy(0.45), m.pW + 4, m.h * 0.33);
+}
+
+function paintSinai(m) {
+  fillMountainGradient(m, [[0, "#e8b07c"], [0.45, "#b2663c"], [1, "#5a2d18"]]);
+
+  // layered sandstone strata
+  ctx.strokeStyle = "rgba(70,30,12,0.28)";
+  ctx.lineWidth = 2;
+  for (let k = 1; k <= 11; k++) {
+    const y = m.fy(k * 0.085);
+    ctx.beginPath();
+    ctx.moveTo(m.pX - 5, y);
+    for (let x = 0; x <= m.pW + 10; x += 20) {
+      ctx.lineTo(m.pX - 5 + x, y + (((x / 20) + k) % 3 - 1) * 3);
+    }
+    ctx.stroke();
+  }
+
+  const far = m.pX + m.pW + 10;
+  drawFacetShadow(m.fx(0.50), m.tipY, H, 14, 8, far, "50,15,0", 0.20);
+  drawFacetShadow(m.fx(0.63), m.fy(0.22), H, 16, 6, far, "50,15,0", 0.14);
+
+  // the switchback pilgrim path ("Steps of Repentance")
+  const steps = [[0.28, 0.95], [0.38, 0.84], [0.30, 0.72], [0.42, 0.60], [0.36, 0.50],
+                 [0.46, 0.40], [0.42, 0.30], [0.49, 0.18], [0.50, 0.04]];
+  ctx.strokeStyle = "rgba(255,235,200,0.6)";
+  ctx.lineWidth = 1.6;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  steps.forEach(([xf, yf], i) => (i === 0 ? ctx.moveTo(m.fx(xf), m.fy(yf)) : ctx.lineTo(m.fx(xf), m.fy(yf))));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // dusty haze at the foot
+  const haze = ctx.createLinearGradient(0, m.fy(0.7), 0, H);
+  haze.addColorStop(0, "rgba(242,201,76,0)");
+  haze.addColorStop(1, "rgba(242,201,76,0.35)");
+  ctx.fillStyle = haze;
+  ctx.fillRect(m.pX - 2, m.fy(0.7), m.pW + 4, m.h * 0.3 + 2);
+}
+
+function paintLogan(m) {
+  fillMountainGradient(m, [[0, "#f4f8fc"], [0.5, "#9db3c6"], [1, "#2f3b36"]]);
+
+  // big glacier field
+  drawSnowCap(m, [0.40, 0.90, 0.20, 0.70, 0.50, 1.0, 0.30, 0.80, 0.10, 0.60, 0.35, 0.90, 0.40], 0.42, 0.22, "#f6fafd");
+
+  // dark rock ridges poking through the ice
+  ctx.strokeStyle = "rgba(45,60,78,0.5)";
+  ctx.lineWidth = 3;
+  [
+    [[0.50, 0.0], [0.42, 0.30], [0.36, 0.55], [0.30, 1.0]],
+    [[0.52, 0.02], [0.57, 0.32], [0.64, 0.60], [0.70, 1.0]],
+    [[0.50, 0.0], [0.48, 0.45], [0.47, 0.75], [0.46, 1.0]]
+  ].forEach(line => {
+    ctx.beginPath();
+    line.forEach(([xf, yf], i) => (i === 0 ? ctx.moveTo(m.fx(xf), m.fy(yf)) : ctx.lineTo(m.fx(xf), m.fy(yf))));
+    ctx.stroke();
+  });
+
+  // pale blue crevasse streaks
+  ctx.strokeStyle = "rgba(120,165,200,0.6)";
+  ctx.lineWidth = 1.5;
+  [[0.40, 0.45, 0.46, 0.55], [0.55, 0.40, 0.62, 0.52], [0.34, 0.60, 0.40, 0.68]].forEach(([a, b, c, d]) => {
+    ctx.beginPath();
+    ctx.moveTo(m.fx(a), m.fy(b));
+    ctx.lineTo(m.fx(c), m.fy(d));
+    ctx.stroke();
+  });
+
+  drawFacetShadow(m.fx(0.52), m.tipY, H, 16, 10, m.pX + m.pW + 10, "30,50,90", 0.24);
+
+  // dark conifers along the base
+  ctx.fillStyle = "#1c2b24";
+  for (let x = m.pX - 10, i = 0; x < m.pX + m.pW + 10; x += 13, i++) {
+    const th = 14 + ((i * 37) % 7) * 2;
+    ctx.beginPath();
+    ctx.moveTo(x, H);
+    ctx.lineTo(x + 6.5, H - th);
+    ctx.lineTo(x + 13, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function paintKosciuszko(m) {
+  fillMountainGradient(m, [[0, "#d9cfae"], [0.45, "#9a9060"], [1, "#3d3f2c"]]);
+
+  // tussock grass
+  ctx.strokeStyle = "rgba(70,75,38,0.7)";
+  ctx.lineWidth = 1.5;
+  KOSCI_TUSSOCK.forEach(t => {
+    const x = m.fx(t.xf), y = m.fy(t.yf);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 2, y - 6);
+    ctx.moveTo(x + 3, y);
+    ctx.lineTo(x + 6, y - 5);
+    ctx.stroke();
+  });
+
+  // snow patches near the summit
+  ctx.fillStyle = "rgba(255,255,255,0.92)";
+  [[0.46, 0.16, 22, 6], [0.66, 0.18, 24, 6], [0.38, 0.32, 18, 5]].forEach(([xf, yf, rx, ry]) => {
+    ctx.beginPath();
+    ctx.ellipse(m.fx(xf), m.fy(yf), rx, ry, -0.08, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  // granite boulders (tors) on the summit
+  [[0.56, 0.07, 9, 6], [0.66, 0.09, 8, 5], [0.49, 0.13, 7, 5]].forEach(([xf, yf, rx, ry]) => {
+    ctx.fillStyle = "#a8a7a0";
+    ctx.beginPath();
+    ctx.ellipse(m.fx(xf), m.fy(yf), rx, ry, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,0.2)";
+    ctx.beginPath();
+    ctx.ellipse(m.fx(xf) + 2, m.fy(yf) + 2, rx * 0.7, ry * 0.6, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  drawFacetShadow(m.fx(0.62), m.tipY, H, 16, 10, m.pX + m.pW + 10, "30,25,5", 0.20);
+}
+
+/* ---------- the two golden stupas on top of Doi Inthanon ---------- */
+function drawStupa(sx, baseY, topY) {
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(0,0,0,0.3)";
+
+  ctx.fillStyle = "#efe6cf"; // terrace
+  ctx.fillRect(sx - 9, baseY - 5, 18, 5);
+
+  ctx.fillStyle = "#e9d8a0"; // bell-shaped dome
+  ctx.beginPath();
+  ctx.moveTo(sx - 8, baseY - 5);
+  ctx.quadraticCurveTo(sx, baseY - 47, sx + 8, baseY - 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#d9a82a"; // golden spire
+  ctx.beginPath();
+  ctx.moveTo(sx - 3, baseY - 26);
+  ctx.lineTo(sx, topY);
+  ctx.lineTo(sx + 3, baseY - 26);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawLandmarkMountain(pipe) {
+  const m = {
+    pX: pipe.x,
+    pW: pipe.width,
+    tipY: pipe.gapBottom,
+    h: H - pipe.gapBottom,
+    fx: (xf) => pipe.x + xf * pipe.width,
+    fy: (yf) => pipe.gapBottom + yf * (H - pipe.gapBottom)
+  };
+  const type = pipe.country.landmark.id;
+  const pts = getLandmarkPoints(pipe);
+
+  // 1) paint the mountain, clipped to its own silhouette
+  ctx.save();
+  tracePoints(pts);
+  ctx.clip();
+  if (type === "FUJI") paintFuji(m);
+  else if (type === "INTHANON") paintInthanon(m);
+  else if (type === "SINAI") paintSinai(m);
+  else if (type === "LOGAN") paintLogan(m);
+  else if (type === "KOSCIUSZKO") paintKosciuszko(m);
+  ctx.restore();
+
+  // 2) crisp outline so it reads clearly against the sky
+  ctx.save();
+  tracePoints(pts);
+  ctx.strokeStyle = "rgba(0,0,0,0.35)";
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.stroke();
+  ctx.restore();
+
+  // 3) landmark-specific extras
+  if (type === "INTHANON") {
+    drawStupa(m.fx(0.44), m.fy(0.15), m.tipY);
+    drawStupa(m.fx(0.56), m.fy(0.15), m.tipY);
+  }
+
+  // 4) name label
+  drawLandmarkLabel(pipe.x + pipe.width / 2, pipe.gapBottom - 35, pipe.country.landmark);
+}
+
+function drawLandmarkLabel(x, y, landmarkInfo) {
+  const nameText = landmarkInfo.name[currentLang] || landmarkInfo.name.en;
+  const subText = `${I18N[currentLang].landmarkTag} • ${landmarkInfo.height}`;
+
+  ctx.save();
+  ctx.font = "bold 13px sans-serif";
+  const w1 = ctx.measureText(nameText).width;
+  ctx.font = "10px sans-serif";
+  const w2 = ctx.measureText(subText).width;
+  const boxWidth = Math.max(w1, w2) + 24;
+  const boxHeight = 36;
+
+  ctx.fillStyle = "rgba(10, 15, 25, 0.88)";
+  ctx.strokeStyle = "#f1c40f";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(x - boxWidth / 2, y - boxHeight / 2, boxWidth, boxHeight, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#f1c40f";
+  ctx.beginPath();
+  ctx.moveTo(x - 6, y + boxHeight / 2);
+  ctx.lineTo(x + 6, y + boxHeight / 2);
+  ctx.lineTo(x, y + boxHeight / 2 + 6);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 13px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(nameText, x, y - 2);
+
+  ctx.fillStyle = "#f1c40f";
+  ctx.font = "bold 9px sans-serif";
+  ctx.fillText(subText, x, y + 11);
+
+  ctx.restore();
+}
+
+function drawMountain(pipe, isTop) {
+  if (pipe.isLandmark) {
+    if (!isTop) drawLandmarkMountain(pipe);
+    return;
+  }
+
+  const pW = pipe.width;
+  const pX = pipe.x + (isTop ? pipe.topXOffset : pipe.botXOffset);
+  const theme = pipe.country;
+  const baseY = isTop ? 0 : H;
+  const tipY = isTop ? pipe.gapTop : pipe.gapBottom;
+  const ridge = isTop ? pipe.topRidge : pipe.bottomRidge;
+
+  const yAt = (hFrac) => baseY + (tipY - baseY) * hFrac;
+
+  const grad = ctx.createLinearGradient(0, baseY, 0, tipY);
+  grad.addColorStop(0, theme.base);
+  grad.addColorStop(0.55, theme.mid);
+  grad.addColorStop(1, theme.peak);
+
+  ctx.beginPath();
+  ctx.moveTo(pX, baseY);
+  RIDGE_X_FRACS.forEach((xf, i) => { ctx.lineTo(pX + xf * pW, yAt(ridge[i])); });
+  ctx.lineTo(pX + pW, baseY);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(0,0,0,0.15)";
+  for (let i = 1; i < RIDGE_X_FRACS.length; i++) {
+    ctx.beginPath();
+    ctx.moveTo(pX + RIDGE_X_FRACS[i - 1] * pW, yAt(ridge[i - 1]));
+    ctx.lineTo(pX + RIDGE_X_FRACS[i] * pW, yAt(ridge[i]));
+    ctx.lineTo(pX + RIDGE_X_FRACS[i] * pW, baseY);
+    ctx.lineTo(pX + RIDGE_X_FRACS[i - 1] * pW, baseY);
+    ctx.closePath();
+    if (i % 2 === 0) ctx.fill();
+  }
+
+  if (theme.hasSnow && theme.snow) {
+    const peakXf = RIDGE_X_FRACS[3];
+    const peakX = pX + peakXf * pW;
+    const peakY = yAt(1);
+    const capSpread = pW * 0.12;
+    ctx.fillStyle = theme.snow;
+    ctx.beginPath();
+    ctx.moveTo(peakX, peakY);
+    ctx.lineTo(peakX - capSpread, yAt(1) + (baseY - yAt(1)) * -0.05 + (isTop ? -8 : 8));
+    ctx.lineTo(peakX + capSpread, yAt(1) + (isTop ? -8 : 8));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.fillStyle = theme.tree;
+  const treeCount = 3;
+  for (let t = 0; t < treeCount; t++) {
+    const seedVal = (pipe.treeSeed * 97 + t * 37) % 1;
+    const tXf = 0.08 + seedVal * 0.2 + t * 0.28;
+    const tX = pX + tXf * pW;
+    const tHeight = 12;
+    const treeBaseY = baseY - (isTop ? -4 : 4);
+    ctx.beginPath();
+    ctx.moveTo(tX, treeBaseY - (isTop ? -tHeight : tHeight));
+    ctx.lineTo(tX - 5, treeBaseY);
+    ctx.lineTo(tX + 5, treeBaseY);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawCoins() {
+  coinsList.forEach(c => {
+    ctx.save();
+    ctx.translate(c.x, c.y);
+    
+    ctx.beginPath();
+    ctx.arc(0, 0, c.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "#f1c40f";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "#d35400";
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, c.radius * 0.5, 0, Math.PI * 2);
+    ctx.strokeStyle = "#f39c12";
+    ctx.stroke();
+
+    ctx.restore();
+  });
+}
+
+function drawPlane() {
+  ctx.save();
+  ctx.translate(plane.x, plane.y);
+
+  let angle = keys.up ? -0.3 : (keys.down ? 0.3 : 0);
+  ctx.rotate(angle);
+
+  const s = plane.size;
+
+  ctx.fillStyle = "#d64545";
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.05, 0);
+  ctx.lineTo(-s * 1.5, -s * 0.85);
+  ctx.lineTo(-s * 0.75, -s * 0.15);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#c94040";
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.25, 0);
+  ctx.lineTo(-s * 1.55, s * 0.32);
+  ctx.lineTo(-s * 0.95, s * 0.14);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#e6e9ec";
+  ctx.strokeStyle = "#aeb4ba";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, s * 0.08);
+  ctx.lineTo(-s * 0.85, s * 0.85);
+  ctx.lineTo(-s * 0.25, s * 0.85);
+  ctx.lineTo(s * 0.4, s * 0.14);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "#1e3c72";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.05, -s * 0.24);
+  ctx.quadraticCurveTo(-s * 0.15, -s * 0.55, s * 0.85, -s * 0.17);
+  ctx.quadraticCurveTo(s * 1.35, 0, s * 0.85, s * 0.17);
+  ctx.quadraticCurveTo(-s * 0.15, s * 0.55, -s * 1.05, s * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = "#d64545";
+  ctx.beginPath();
+  ctx.moveTo(s * 0.85, -s * 0.17);
+  ctx.quadraticCurveTo(s * 1.35, 0, s * 0.85, s * 0.17);
+  ctx.lineTo(s * 0.68, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#28344d";
+  ctx.beginPath();
+  ctx.ellipse(s * 0.52, -s * 0.06, s * 0.24, s * 0.14, -0.15, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#8fb8e8";
+  for (let wx = -s * 0.75; wx <= s * 0.05; wx += s * 0.32) {
+    ctx.beginPath();
+    ctx.arc(wx, -s * 0.02, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function draw() {
+  const currentTheme = COUNTRIES[currentCountryIndex];
+  const translatedCountryName = I18N[currentLang].countries[currentTheme.key];
+
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+  skyGrad.addColorStop(0, currentTheme.sky[0]);
+  skyGrad.addColorStop(0.7, currentTheme.sky[1]);
+  skyGrad.addColorStop(1, currentTheme.sky[2]);
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, W, H);
+
+  cloudOffset += worldSpeed * 0.15;
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
+  for (let i = 0; i < 4; i++) {
+    const cx = (cloudOffset + i * 160) % (W + 100) - 50;
+    ctx.beginPath();
+    ctx.ellipse(cx, 80 + i * 40, 30, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  pipes.forEach(pipe => {
+    if (pipe.hasTopMountain) drawMountain(pipe, true);
+    drawMountain(pipe, false);
+  });
+
+  drawCoins();
+  weatherSystem.draw();
+  drawPlane();
+
+  ctx.fillStyle = "#fff";
+  ctx.font = "bold 28px sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(score, W / 2, 45);
+
+  ctx.font = "bold 16px sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.85)";
+  ctx.fillText(`${currentTheme.emoji} ${translatedCountryName.toUpperCase()}`, W / 2, 72);
+
+  if (bannerTimer > 0) {
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(W / 2 - 140, 95, 280, 50);
+    ctx.font = "bold 18px sans-serif";
+    ctx.fillStyle = "#f1c40f";
+    ctx.fillText(I18N[currentLang].entering(currentTheme.emoji, translatedCountryName), W / 2, 127);
+  }
+
+  const pct = ((worldSpeed - MIN_SPEED) / (MAX_SPEED - MIN_SPEED)) * 100;
+  speedBar.style.width = pct + "%";
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+/* =========================================================
+   ENCYCLOPEDIA FIELD GUIDE & COLLECTIONS RENDERERS
+   ========================================================= */
+function renderGuideList() {
+  const container = document.getElementById("landmark-list-container");
+  document.getElementById("guide-modal-title").textContent = I18N[currentLang].guideTitle;
+  container.innerHTML = "";
+
+  LANDMARK_DB.forEach(landmark => {
+    const isUnlocked = unlockedLandmarks.has(landmark.id);
+    const card = document.createElement("div");
+    card.className = `landmark-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+
+    const nameText = landmark.name[currentLang] || landmark.name.en;
+    const locationText = landmark.location[currentLang] || landmark.location.en;
+    const importanceText = landmark.importance[currentLang] || landmark.importance.en;
+    const funFactText = landmark.funFact[currentLang] || landmark.funFact.en;
+    const badgeHtml = isUnlocked 
+      ? `<span class="badge-unlocked">${I18N[currentLang].unlockedLabel}</span>` 
+      : `<span class="badge-locked">${I18N[currentLang].lockedLabel}</span>`;
+
+    if (isUnlocked) {
+      card.innerHTML = `
+        <div class="card-title">${landmark.emoji} ${nameText} ${badgeHtml}</div>
+        <div class="card-subtitle">📏 ${landmark.height} • 📍 ${locationText}</div>
+        <div class="card-body">
+          <p><strong>${currentLang === 'en' ? 'Significance' : 'ความสำคัญ'}:</strong> ${importanceText}</p>
+          <p><strong>${currentLang === 'en' ? 'Fun Fact' : 'เกร็ดน่ารู้'}:</strong> ${funFactText}</p>
+        </div>
+      `;
+    } else {
+      card.innerHTML = `
+        <div class="card-title">${landmark.emoji} ${nameText} ${badgeHtml}</div>
+        <div class="card-subtitle">📏 ${landmark.height}</div>
+        <div class="card-body">
+          <p><em>${I18N[currentLang].lockedLabel}</em></p>
+        </div>
+      `;
+    }
+    container.appendChild(card);
+  });
+}
+
+function renderCollectionsChart() {
+  const chartContainer = document.getElementById("collections-chart");
+  document.getElementById("collections-modal-title").textContent = I18N[currentLang].collectionsTitle;
+  chartContainer.innerHTML = "";
+
+  // Sort mountains by height ascending so comparison is intuitive
+  const sortedLandmarks = [...LANDMARK_DB].sort((a, b) => a.metersHeight - b.metersHeight);
+  const maxHeight = 6200; // Mt. Logan is 5,959m
+
+  sortedLandmarks.forEach(landmark => {
+    const isUnlocked = unlockedLandmarks.has(landmark.id);
+    const nameText = landmark.name[currentLang] || landmark.name.en;
+    const heightPercent = Math.max(12, Math.round((landmark.metersHeight / maxHeight) * 100));
+
+    const col = document.createElement("div");
+    col.className = "chart-column";
+
+    col.innerHTML = `
+      <div class="chart-bar-wrap" style="height: 100%;">
+        <div class="chart-height-tag">${landmark.metersHeight}m</div>
+        <div class="chart-bar ${isUnlocked ? 'unlocked' : 'locked'}" style="height: ${heightPercent}%;">
+          ${isUnlocked ? landmark.emoji : '🔒'}
+        </div>
+      </div>
+      <div class="chart-label">${nameText}</div>
+    `;
+
+    chartContainer.appendChild(col);
+  });
+}
+
+/* =========================================================
+   MODAL & PAUSE & NAVIGATION HANDLERS
+   ========================================================= */
+const mainMenu = document.getElementById("main-menu");
+const gameoverModal = document.getElementById("gameover-modal");
+const overlayTitle = document.getElementById("overlay-title");
+const overlayText = document.getElementById("overlay-text");
+const startBtn = document.getElementById("start-btn");
+const retryBtn = document.getElementById("retry-btn");
+const speedBar = document.getElementById("speed-bar");
+const pauseModal = document.getElementById("pause-modal");
+const guideModal = document.getElementById("guide-modal");
+const collectionsModal = document.getElementById("collections-modal");
+
+function togglePause() {
+  if (!gameRunning) return;
+  isPaused = !isPaused;
+
+  if (isPaused) {
+    stopEngineSound();
+    pauseModal.style.display = "flex";
+  } else {
+    startEngineSound();
+    pauseModal.style.display = "none";
+  }
+}
+
+function openGuide() {
+  renderGuideList();
+  guideModal.style.display = "flex";
+}
+
+function closeGuide() {
+  guideModal.style.display = "none";
+}
+
+function openCollections() {
+  renderCollectionsChart();
+  collectionsModal.style.display = "flex";
+}
+
+function closeCollections() {
+  collectionsModal.style.display = "none";
+}
+
+function showMainMenu() {
+  gameRunning = false;
+  isPaused = false;
+  stopEngineSound();
+  pauseModal.style.display = "none";
+  gameoverModal.style.display = "none";
+  guideModal.style.display = "none";
+  collectionsModal.style.display = "none";
+  mainMenu.style.display = "flex";
+}
+
+pauseBtn.addEventListener("click", togglePause);
+document.getElementById("resume-btn").addEventListener("click", togglePause);
+
+guideBtn.addEventListener("click", openGuide);
+document.getElementById("menu-guide-btn").addEventListener("click", openGuide);
+document.getElementById("pause-guide-btn").addEventListener("click", openGuide);
+document.getElementById("close-guide-btn").addEventListener("click", closeGuide);
+
+collectionsBtn.addEventListener("click", openCollections);
+document.getElementById("menu-collections-btn").addEventListener("click", openCollections);
+document.getElementById("pause-collections-btn").addEventListener("click", openCollections);
+document.getElementById("close-collections-btn").addEventListener("click", closeCollections);
+
+document.getElementById("pause-main-menu-btn").addEventListener("click", showMainMenu);
+document.getElementById("gameover-main-menu-btn").addEventListener("click", showMainMenu);
+
+function startGame() {
+  initAudio();
+  resetGame();
+  gameRunning = true;
+  mainMenu.style.display = "none";
+  gameoverModal.style.display = "none";
+  pauseModal.style.display = "none";
+  guideModal.style.display = "none";
+  collectionsModal.style.display = "none";
+  startEngineSound();
+}
+
+function endGame() {
+  if (!gameRunning) return;
+  gameRunning = false;
+  isPaused = false;
+  stopEngineSound();
+  playCrashSound();
+
+  if (score > best) {
+    best = score;
+    localStorage.setItem("geoFlyerBest", String(best));
+  }
+  
+  const txt = I18N[currentLang];
+  overlayTitle.textContent = txt.crashedTitle;
+  overlayText.innerHTML = txt.crashedText(score, totalCoinsCollected, best);
+  retryBtn.textContent = txt.tryAgainBtn;
+  gameoverModal.style.display = "flex";
+}
+
+startBtn.addEventListener("click", startGame);
+retryBtn.addEventListener("click", startGame);
+
+resetGame();
+draw();
+loop();
+</script>
+
+</body>
+</html>
