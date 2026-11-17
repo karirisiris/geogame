@@ -143,6 +143,7 @@
     justify-content: flex-start;
     padding: 16px;
     overflow-y: auto;
+    z-index: 15;
   }
   .modal-header {
     display: flex;
@@ -164,21 +165,22 @@
     padding-right: 4px;
   }
 
-  /* Collections Height Chart UI */
+  /* Collections Height Chart UI (9 Landmarks Side-by-Side) */
   .collections-chart-container {
     width: 100%;
     height: 60vh;
     display: flex;
     align-items: flex-end;
-    justify-content: space-around;
-    gap: 8px;
-    padding: 30px 10px 10px 10px;
+    justify-content: space-between;
+    gap: 3px;
+    padding: 26px 4px 8px 4px;
     background: rgba(0, 0, 0, 0.4);
     border-radius: 12px;
     border: 1px solid rgba(255,255,255,0.15);
   }
   .chart-column {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -187,7 +189,7 @@
   }
   .chart-bar-wrap {
     width: 100%;
-    max-width: 50px;
+    max-width: 42px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -196,12 +198,13 @@
   }
   .chart-bar {
     width: 100%;
-    border-radius: 6px 6px 0 0;
+    border-radius: 5px 5px 0 0;
     transition: height 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     display: flex;
     align-items: center;
     justify-content: center;
     position: relative;
+    font-size: 0.78rem;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   }
   .chart-bar.unlocked {
@@ -215,19 +218,24 @@
   }
   .chart-height-tag {
     position: absolute;
-    top: -24px;
-    font-size: 0.72rem;
+    top: -18px;
+    font-size: 0.62rem;
     font-weight: bold;
     color: #f1c40f;
     white-space: nowrap;
   }
   .chart-label {
-    margin-top: 8px;
-    font-size: 0.75rem;
+    margin-top: 6px;
+    font-size: 0.62rem;
     text-align: center;
     color: #cbd5e0;
     font-weight: bold;
     line-height: 1.1;
+    word-break: break-word;
+    height: 2.2em;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
   }
 
   .landmark-card {
@@ -358,7 +366,7 @@
   <!-- Main Menu Overlay -->
   <div id="main-menu" class="modal-overlay">
     <h2 id="menu-title">🌍 Geo Flyer</h2>
-    <p id="menu-subtitle">Explore world peaks & unlock geography secrets!</p>
+    <p id="menu-subtitle">Explore 9 world peaks & unlock geography secrets!</p>
     <div class="menu-btn-group">
       <button id="start-btn" class="btn-primary">▶️ Start Flying</button>
       <button id="menu-collections-btn" class="btn-secondary">🏔️ Mountain Collections</button>
@@ -418,7 +426,7 @@ const H = canvas.height;
 
 const VERTICAL_SPEED = 4;
 const NORMAL_PIPE_WIDTH = 125;
-const LANDMARK_PIPE_WIDTH = 340; // Extra wide base to ensure natural mountain slopes
+const LANDMARK_PIPE_WIDTH = 340;
 const PIPE_GAP = 195;
 const PIPE_SPACING = 280;
 
@@ -430,7 +438,7 @@ const SPEED_ACCEL = 0.06;
 const SAFE_START_DISTANCE = 400;
 
 /* =========================================================
-   TRANSLATIONS & ENCYCLOPEDIA DATA
+   TRANSLATIONS & ENCYCLOPEDIA DATA (9 LANDMARKS)
    ========================================================= */
 let currentLang = "en";
 
@@ -461,7 +469,11 @@ const I18N = {
       Thailand: "Thailand",
       Egypt: "Egypt",
       Japan: "Japan",
-      Australia: "Australia"
+      Australia: "Australia",
+      Nepal: "Nepal",
+      Tanzania: "Tanzania",
+      Switzerland: "Switzerland",
+      "South Africa": "South Africa"
     }
   },
   th: {
@@ -490,12 +502,33 @@ const I18N = {
       Thailand: "ไทย",
       Egypt: "อียิปต์",
       Japan: "ญี่ปุ่น",
-      Australia: "ออสเตรเลีย"
+      Australia: "ออสเตรเลีย",
+      Nepal: "เนปาล",
+      Tanzania: "แทนซาเนีย",
+      Switzerland: "สวิตเซอร์แลนด์",
+      "South Africa": "แอฟริกาใต้"
     }
   }
 };
 
 const LANDMARK_DB = [
+  {
+    id: "EVEREST",
+    countryKey: "Nepal",
+    emoji: "🇳🇵",
+    name: { en: "Mount Everest", th: "ยอดเขาเอเวอเรสต์" },
+    metersHeight: 8849,
+    height: "8,849m (29,032 ft)",
+    location: { en: "Mahalangur Himal, Nepal / China Border", th: "เทือกเขาหิมาลัย พรมแดนประเทศเนปาล-จีน" },
+    importance: {
+      en: "Earth's highest mountain above sea level, revered locally as Sagarmatha ('Goddess of the Sky') and Chomolungma.",
+      th: "ยอดเขาที่สูงที่สุดในโลกเหนือระดับน้ำทะเล ชาวเนปาลเรียกว่า 'สครมาถา' และชาวทิเบตเรียกว่า 'โชโมลังมา'"
+    },
+    funFact: {
+      en: "Jet-stream winds at the summit can exceed 280 km/h (175 mph), and tectonic plate movement pushes Everest about 4 mm higher every year!",
+      th: "กระแสลมกรดบนยอดเขาสามารถพัดแรงเกิน 280 กม./ชม. และการเคลื่อนตัวของแผ่นเปลือกโลกยังดันให้เอเวอเรสต์สูงขึ้นปีละประมาณ 4 มิลลิเมตร!"
+    }
+  },
   {
     id: "LOGAN",
     countryKey: "Canada",
@@ -511,6 +544,40 @@ const LANDMARK_DB = [
     funFact: {
       en: "Mt. Logan has the largest base circumference of any non-volcanic mountain on Earth and continues to grow due to tectonic uplifting!",
       th: "ยอดเขาโลแกนมีเส้นรอบวงฐานกว้างที่สุดในบรรดายอดเขาที่ไม่ใช่ภูเขาไฟบนโลก และยังคงสูงขึ้นเรื่อยๆ จากการเคลื่อนตัวของแผ่นเปลือกโลก!"
+    }
+  },
+  {
+    id: "KILIMANJARO",
+    countryKey: "Tanzania",
+    emoji: "🇹🇿",
+    name: { en: "Mount Kilimanjaro", th: "ยอดเขาคิลิมันจาโร" },
+    metersHeight: 5895,
+    height: "5,895m (19,341 ft)",
+    location: { en: "Kilimanjaro Region, Tanzania", th: "แคว้นคิลิมันจาโร ประเทศแทนซาเนีย" },
+    importance: {
+      en: "The highest peak in Africa and the tallest free-standing mountain in the world, rising dramatically above the Tanzanian plains.",
+      th: "ยอดเขาที่สูงที่สุดในทวีปแอฟริกา และเป็นภูเขาไฟลูกโดด (ไม่ได้อยู่ในเทือกเขา) ที่สูงที่สุดในโลก"
+    },
+    funFact: {
+      en: "Climbers pass through five distinct climate zones on their ascent—from tropical rainforest and moorland to alpine desert and an arctic summit!",
+      th: "นักปีนเขาจะได้เดินผ่านสภาพอากาศถึง 5 โซนในภูเขาลูกเดียว ตั้งแต่ป่าฝนเขตร้อน ทุ่งหญ้า ทะเลทรายอัลไพน์ ไปจนถึงธารน้ำแข็งขั้วโลก!"
+    }
+  },
+  {
+    id: "MATTERHORN",
+    countryKey: "Switzerland",
+    emoji: "🇨🇭",
+    name: { en: "The Matterhorn", th: "ยอดเขาแมตเทอร์ฮอร์น" },
+    metersHeight: 4478,
+    height: "4,478m (14,692 ft)",
+    location: { en: "Pennine Alps, Switzerland / Italy Border", th: "เทือกเขาแอลป์ พรมแดนสวิตเซอร์แลนด์-อิตาลี" },
+    importance: {
+      en: "One of the most famous and recognizable pyramidal peaks in the Alps and an enduring emblem of Switzerland.",
+      th: "หนึ่งในยอดเขาทรงพีระมิดที่มีชื่อเสียงและจดจำได้ง่ายที่สุดในเทือกเขาแอลป์ และเป็นสัญลักษณ์สำคัญของประเทศสวิตเซอร์แลนด์"
+    },
+    funFact: {
+      en: "The Matterhorn's four steep, dramatic rock faces are aligned almost directly toward the four cardinal compass points (North, South, East, West)!",
+      th: "หน้าผาหินอันสูงชันทั้ง 4 ด้านของยอดเขาแมตเทอร์ฮอร์น หันตรงไปยังทิศหลักทั้ง 4 บนเข็มทิศ (เหนือ ใต้ ออก ตก) เกือบพอดิบพอดี!"
     }
   },
   {
@@ -580,13 +647,30 @@ const LANDMARK_DB = [
       en: "Because of its smooth rounded plateau shape, it is considered one of the easiest 'Seven Summits' peaks in the world to hike!",
       th: "ด้วยลักษณะยอดเขาที่เป็นที่ราบสูงความชันน้อย จึงได้รับการยกย่องว่าเป็นหนึ่งในยอดเขา Seven Summits ที่ปีนง่ายที่สุดในโลก!"
     }
+  },
+  {
+    id: "TABLE",
+    countryKey: "South Africa",
+    emoji: "🇿🇦",
+    name: { en: "Table Mountain", th: "ภูเขาโต๊ะ (เทเบิลเมาน์เทน)" },
+    metersHeight: 1085,
+    height: "1,085m (3,560 ft)",
+    location: { en: "Cape Town, South Africa", th: "เมืองเคปทาวน์ ประเทศแอฟริกาใต้" },
+    importance: {
+      en: "An iconic flat-topped landmark overlooking Cape Town and Table Bay, named one of the official New7Wonders of Nature.",
+      th: "แลนด์มาร์กยอดราบอันโดดเด่นที่มองเห็นเมืองเคปทาวน์และอ่าวเทเบิล ได้รับเลือกให้เป็น 1 ใน 7 สิ่งมหัศจรรย์ทางธรรมชาติของโลกยุคใหม่"
+    },
+    funFact: {
+      en: "Orographic clouds frequently spill over its 3 km flat plateau like a white 'tablecloth' when moist ocean winds rise up its sheer cliffs!",
+      th: "กลุ่มเมฆสีขาวมักไหลปกคลุมยอดเขาที่ราบเรียบยาวกว่า 3 กิโลเมตรเหมือน 'ผ้าปูโต๊ะ' เมื่อลมทะเลชื้นปะทะกับหน้าผาสูงชัน!"
+    }
   }
 ];
 
-let unlockedLandmarks = new Set(); // Stores IDs of landmarks passed
+let unlockedLandmarks = new Set();
 
 /* =========================================================
-   COUNTRY THEMES & DEFINITIONS
+   COUNTRY THEMES & DEFINITIONS (9 COUNTRIES)
    ========================================================= */
 const COUNTRIES = [
   {
@@ -594,35 +678,63 @@ const COUNTRIES = [
     sky: ["#3a7bd5", "#73a5ff", "#bbd2c5"],
     base: "#2d3a2a", mid: "#505852", peak: "#a0aab2", snow: "#ffffff", tree: "#1d2e1c",
     hasSnow: true,
-    landmark: LANDMARK_DB[0]
+    landmark: LANDMARK_DB.find(l => l.id === "LOGAN")
   },
   {
     emoji: "🇹🇭", key: "Thailand", weather: "rain",
     sky: ["#00b4db", "#0083b0", "#a8e063"],
     base: "#1b4332", mid: "#2d6a4f", peak: "#52b788", snow: null, tree: "#081c15",
     hasSnow: false,
-    landmark: LANDMARK_DB[2]
+    landmark: LANDMARK_DB.find(l => l.id === "INTHANON")
   },
   {
     emoji: "🇪🇬", key: "Egypt", weather: "sand",
     sky: ["#f2994a", "#f2c94c", "#ffeb3b"],
     base: "#8d5b4c", mid: "#b07d62", peak: "#deab90", snow: null, tree: "#5c3d2e",
     hasSnow: false,
-    landmark: LANDMARK_DB[3]
+    landmark: LANDMARK_DB.find(l => l.id === "SINAI")
   },
   {
     emoji: "🇯🇵", key: "Japan", weather: "snow",
     sky: ["#2c1654", "#6d327c", "#f7a072"],
     base: "#1d1a33", mid: "#363354", peak: "#6a668c", snow: "#ffffff", tree: "#ffb703",
     hasSnow: true,
-    landmark: LANDMARK_DB[1]
+    landmark: LANDMARK_DB.find(l => l.id === "FUJI")
   },
   {
     emoji: "🇦🇺", key: "Australia", weather: "rain",
     sky: ["#11998e", "#38ef7d", "#f45c43"],
     base: "#582f0e", mid: "#7f4f24", peak: "#936639", snow: null, tree: "#333d29",
     hasSnow: false,
-    landmark: LANDMARK_DB[4]
+    landmark: LANDMARK_DB.find(l => l.id === "KOSCIUSZKO")
+  },
+  {
+    emoji: "🇳🇵", key: "Nepal", weather: "snow",
+    sky: ["#1a2a6c", "#4b79a1", "#dce8f2"],
+    base: "#1f2933", mid: "#4a5568", peak: "#cbd5e0", snow: "#ffffff", tree: "#1a3626",
+    hasSnow: true,
+    landmark: LANDMARK_DB.find(l => l.id === "EVEREST")
+  },
+  {
+    emoji: "🇹🇿", key: "Tanzania", weather: "sand",
+    sky: ["#d9534f", "#f0ad4e", "#fceabb"],
+    base: "#4a3525", mid: "#7c583a", peak: "#a8825e", snow: "#ffffff", tree: "#3b5323",
+    hasSnow: true,
+    landmark: LANDMARK_DB.find(l => l.id === "KILIMANJARO")
+  },
+  {
+    emoji: "🇨🇭", key: "Switzerland", weather: "snow",
+    sky: ["#1e3c72", "#2a5298", "#a1c4fd"],
+    base: "#2c3e50", mid: "#5d6d7e", peak: "#aeb6bf", snow: "#ffffff", tree: "#143d29",
+    hasSnow: true,
+    landmark: LANDMARK_DB.find(l => l.id === "MATTERHORN")
+  },
+  {
+    emoji: "🇿🇦", key: "South Africa", weather: "rain",
+    sky: ["#0072ff", "#00c6ff", "#e0f7fa"],
+    base: "#3d4035", mid: "#6b705c", peak: "#a5a58d", snow: null, tree: "#283618",
+    hasSnow: false,
+    landmark: LANDMARK_DB.find(l => l.id === "TABLE")
   }
 ];
 
@@ -947,6 +1059,8 @@ document.addEventListener("keydown", (e) => {
   if (["ArrowUp","ArrowDown","KeyW","KeyS","KeyA","KeyD"].includes(e.code)) e.preventDefault();
   
   if (e.code === "KeyP" || e.code === "Space") {
+    // Only allow keyboard pause toggle when not actively viewing Guide or Collections
+    if (guideModal.style.display === "flex" || collectionsModal.style.display === "flex") return;
     togglePause();
     return;
   }
@@ -968,7 +1082,6 @@ bindTouch("btn-slow", "left");
    ACCURATE POLYGON HITBOX COLLISION DETECTION
    ========================================================= */
 function getMountainPolygon(pipe, isTop) {
-  // Landmarks use the exact same silhouette that is drawn on screen
   if (pipe.isLandmark && !isTop) return getLandmarkPoints(pipe);
 
   const points = [];
@@ -1041,7 +1154,6 @@ function update() {
       pipe.passed = true;
       score++;
       
-      // Unlock landmark in Field Guide & Collections if passed!
       if (pipe.isLandmark && pipe.country && pipe.country.landmark) {
         unlockedLandmarks.add(pipe.country.landmark.id);
       }
@@ -1099,198 +1211,14 @@ function update() {
 let cloudOffset = 0;
 
 /* =========================================================
-   THAI TEMPLE STUPAS & REDESIGNED LANDMARK RENDERING
-   ========================================================= */
-
-// Detailed Thai Pagoda & Pavilion matching Ref Image 1
-function drawThaiLandmarkScene(x, y, scale = 1) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
-
-  // Background Line-art Mountain Peaks (Ref 1 style)
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
-  ctx.lineWidth = 2.5;
-  ctx.fillStyle = "rgba(45, 106, 79, 0.65)";
-  
-  ctx.beginPath();
-  ctx.moveTo(80, 0);
-  ctx.lineTo(130, -90);
-  ctx.lineTo(160, -140);
-  ctx.lineTo(190, -80);
-  ctx.lineTo(240, -160);
-  ctx.lineTo(270, -70);
-  ctx.lineTo(310, -110);
-  ctx.lineTo(340, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Background Cloud Arcs (Ref 1)
-  ctx.strokeStyle = "rgba(255,255,255,0.6)";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(140, -130, 25, Math.PI, 0);
-  ctx.arc(180, -130, 20, Math.PI, 0);
-  ctx.stroke();
-
-  // --- 1. Multi-tiered Main Thai Pagoda (Left - Ref Image 1) ---
-  ctx.save();
-  ctx.translate(60, 0);
-
-  // Base platform steps
-  ctx.fillStyle = "#2d3748";
-  ctx.strokeStyle = "#ffffff";
-  ctx.lineWidth = 2;
-  ctx.fillRect(-50, -15, 100, 15);
-  ctx.strokeRect(-50, -15, 100, 15);
-
-  // Lower Tier Windows & Columns
-  ctx.fillStyle = "#3a4a5e";
-  ctx.fillRect(-42, -50, 84, 35);
-  ctx.strokeRect(-42, -50, 84, 35);
-
-  // Arched Windows
-  ctx.fillStyle = "#f1c40f";
-  for (let i = -30; i <= 30; i += 20) {
-    ctx.beginPath();
-    ctx.rect(i - 5, -42, 10, 18);
-    ctx.fill();
-    ctx.stroke();
-  }
-
-  // Tier 2 Roof
-  ctx.fillStyle = "#d35400";
-  ctx.beginPath();
-  ctx.moveTo(-50, -50);
-  ctx.lineTo(-30, -68);
-  ctx.lineTo(30, -68);
-  ctx.lineTo(50, -50);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Tier 2 Body
-  ctx.fillStyle = "#3a4a5e";
-  ctx.fillRect(-28, -95, 56, 27);
-  ctx.strokeRect(-28, -95, 56, 27);
-
-  // Tier 3 Roof
-  ctx.fillStyle = "#d35400";
-  ctx.beginPath();
-  ctx.moveTo(-36, -95);
-  ctx.lineTo(-20, -112);
-  ctx.lineTo(20, -112);
-  ctx.lineTo(36, -95);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Octagonal Bell Base
-  ctx.fillStyle = "#f1c40f";
-  ctx.beginPath();
-  ctx.moveTo(-18, -112);
-  ctx.lineTo(-14, -145);
-  ctx.lineTo(14, -145);
-  ctx.lineTo(18, -112);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Main Tall Spire
-  ctx.beginPath();
-  ctx.moveTo(-12, -145);
-  ctx.lineTo(-2, -220);
-  ctx.lineTo(2, -220);
-  ctx.lineTo(12, -145);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  // Ring details on spire
-  for (let r = -155; r >= -210; r -= 10) {
-    ctx.beginPath();
-    ctx.moveTo(-8 + (r + 155) * 0.1, r);
-    ctx.lineTo(8 - (r + 155) * 0.1, r);
-    ctx.stroke();
-  }
-
-  // Side Mini Spires
-  [-38, 38].forEach(sx => {
-    ctx.fillStyle = "#f1c40f";
-    ctx.beginPath();
-    ctx.moveTo(sx - 6, -68);
-    ctx.lineTo(sx - 1, -115);
-    ctx.lineTo(sx + 1, -115);
-    ctx.lineTo(sx + 6, -68);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  });
-
-  ctx.restore();
-
-  // --- 2. Thai Pavilion / Ubosot (Right - Ref Image 1) ---
-  ctx.save();
-  ctx.translate(280, 0);
-
-  // Base
-  ctx.fillStyle = "#2d3748";
-  ctx.fillRect(-35, -12, 70, 12);
-  ctx.strokeRect(-35, -12, 70, 12);
-
-  // Wall
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(-28, -42, 56, 30);
-  ctx.strokeRect(-28, -42, 56, 30);
-
-  // Doors & Pillars
-  ctx.fillStyle = "#e74c3c";
-  ctx.fillRect(-8, -36, 16, 24);
-  ctx.strokeRect(-8, -36, 16, 24);
-
-  // Curved Thai Gabled Roof
-  ctx.fillStyle = "#c0392b";
-  ctx.beginPath();
-  ctx.moveTo(-40, -42);
-  ctx.quadraticCurveTo(-20, -65, 0, -75);
-  ctx.quadraticCurveTo(20, -65, 40, -42);
-  ctx.lineTo(32, -42);
-  ctx.quadraticCurveTo(15, -55, 0, -62);
-  ctx.quadraticCurveTo(-15, -55, -32, -42);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.restore();
-
-  // Small trees at ground level (Ref 1)
-  [140, 165, 190, 215, 235].forEach((tx, idx) => {
-    ctx.fillStyle = "#27ae60";
-    ctx.beginPath();
-    ctx.arc(tx, -10 - (idx % 2) * 5, 8 + (idx % 3) * 2, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-  });
-
-  ctx.restore();
-}
-
-/* =========================================================
-   LANDMARK MOUNTAINS (redesigned)
-   Every landmark is described ONCE as a silhouette. The same
-   points are used to DRAW the mountain and to detect CRASHES,
-   so what you see is exactly what you can hit.
-   Each point is [xFrac, yFrac]:
-     xFrac: 0 = left edge of the mountain, 1 = right edge
-     yFrac: 0 = summit (top),               1 = ground
+   LANDMARK MOUNTAINS (ALL 9 SILHOUETTES & CUSTOM PAINTERS)
    ========================================================= */
 const LANDMARK_SHAPES = {
-  // Tall, concave volcano cone with a flat crater rim
+  // Broad, thick, majestic stratovolcano silhouette with wider shoulders & crater rim
   FUJI: [
-    [0, 1], [0.06, 0.96], [0.14, 0.86], [0.22, 0.70], [0.30, 0.50], [0.37, 0.30],
-    [0.43, 0.12], [0.47, 0.02], [0.49, 0], [0.51, 0], [0.53, 0.02], [0.57, 0.12],
-    [0.63, 0.30], [0.70, 0.50], [0.78, 0.70], [0.86, 0.86], [0.94, 0.96], [1, 1]
+    [0, 1], [0.05, 0.92], [0.11, 0.78], [0.18, 0.60], [0.26, 0.41], [0.34, 0.23],
+    [0.41, 0.08], [0.45, 0.01], [0.48, 0], [0.52, 0], [0.55, 0.01], [0.59, 0.08],
+    [0.66, 0.23], [0.74, 0.41], [0.82, 0.60], [0.89, 0.78], [0.95, 0.92], [1, 1]
   ],
   // Rounded forested massif, with the two summit stupas built into the outline
   INTHANON: [
@@ -1316,10 +1244,33 @@ const LANDMARK_SHAPES = {
     [0, 1], [0.06, 0.86], [0.13, 0.64], [0.21, 0.44], [0.30, 0.27], [0.39, 0.14],
     [0.47, 0.06], [0.55, 0.02], [0.62, 0], [0.69, 0.03], [0.76, 0.10], [0.83, 0.24],
     [0.90, 0.46], [0.96, 0.72], [1, 1]
+  ],
+  // Towering sharp Himalayan pyramid peak with Nuptse/Lhotse shoulders
+  EVEREST: [
+    [0, 1], [0.06, 0.88], [0.14, 0.68], [0.22, 0.50], [0.28, 0.38], [0.33, 0.41],
+    [0.39, 0.24], [0.45, 0.10], [0.50, 0], [0.55, 0.09], [0.61, 0.22], [0.67, 0.28],
+    [0.73, 0.25], [0.80, 0.44], [0.88, 0.68], [0.95, 0.88], [1, 1]
+  ],
+  // Broad, flat-topped Kibo crater cone with Mawenzi side peak
+  KILIMANJARO: [
+    [0, 1], [0.06, 0.88], [0.14, 0.70], [0.22, 0.48], [0.30, 0.24], [0.36, 0.06],
+    [0.41, 0.01], [0.48, 0], [0.56, 0.01], [0.61, 0.06], [0.67, 0.26], [0.73, 0.32],
+    [0.78, 0.24], [0.83, 0.42], [0.90, 0.68], [0.96, 0.88], [1, 1]
+  ],
+  // Iconic ultra-steep hooked pyramidal horn
+  MATTERHORN: [
+    [0, 1], [0.08, 0.90], [0.18, 0.74], [0.27, 0.54], [0.34, 0.34], [0.40, 0.16],
+    [0.45, 0.04], [0.49, 0], [0.52, 0.03], [0.55, 0.18], [0.60, 0.38], [0.67, 0.58],
+    [0.76, 0.74], [0.86, 0.88], [0.94, 0.95], [1, 1]
+  ],
+  // Famous wide flat-topped plateau flanked by Lion's Head & Devil's Peak
+  TABLE: [
+    [0, 1], [0.05, 0.82], [0.10, 0.58], [0.14, 0.44], [0.18, 0.52], [0.23, 0.30],
+    [0.27, 0.05], [0.31, 0], [0.69, 0], [0.73, 0.05], [0.77, 0.32], [0.82, 0.46],
+    [0.86, 0.34], [0.91, 0.56], [0.96, 0.82], [1, 1]
   ]
 };
 
-// Decoration positions are created ONCE here (not every frame), so nothing flickers.
 const INTHANON_TREES = Array.from({ length: 90 }, () => ({
   xf: Math.random(), yf: 0.14 + Math.random() * 0.86,
   r: 5 + Math.random() * 6, shade: Math.random()
@@ -1336,15 +1287,12 @@ function getLandmarkPoints(pipe) {
   return shape.map(([xf, yf]) => ({ x: pipe.x + xf * pipe.width, y: tipY + yf * h }));
 }
 
-/* ---------- small drawing helpers ---------- */
 function tracePoints(points) {
   ctx.beginPath();
   points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
   ctx.closePath();
 }
 
-// Darkens everything to the right of a zig-zag ridge line (light comes from the left).
-// The mountain is clipped first, so this only ever shades the mountain itself.
 function drawFacetShadow(sx, topY, baseY, drift, jag, farX, rgb, alpha) {
   ctx.fillStyle = `rgba(${rgb},${alpha})`;
   ctx.beginPath();
@@ -1361,7 +1309,6 @@ function drawFacetShadow(sx, topY, baseY, drift, jag, farX, rgb, alpha) {
   ctx.fill();
 }
 
-// Fills the area above an irregular lower edge (snow caps, glaciers).
 function drawSnowCap(m, drips, minYf, rangeYf, color) {
   ctx.fillStyle = color;
   ctx.beginPath();
@@ -1383,18 +1330,17 @@ function fillMountainGradient(m, stops) {
   ctx.fillRect(m.pX - 2, m.tipY - 2, m.pW + 4, m.h + 4);
 }
 
-/* ---------- one painter per landmark ---------- */
+/* ---------- Custom Landmark Painters ---------- */
 function paintFuji(m) {
-  fillMountainGradient(m, [[0, "#9aa9dd"], [0.4, "#566aa8"], [1, "#1e2a55"]]);
+  fillMountainGradient(m, [[0, "#4b5d99"], [0.42, "#24305e"], [1, "#0e1530"]]);
 
-  drawSnowCap(m, [0.20, 0.55, 0.30, 0.75, 0.35, 1.0, 0.40, 0.70, 0.25, 0.60, 0.20], 0.17, 0.2, "#fff7fb");
+  drawSnowCap(m, [0.20, 0.55, 0.30, 0.75, 0.35, 1.0, 0.40, 0.70, 0.25, 0.60, 0.20], 0.16, 0.21, "#fff9fc");
 
   const far = m.pX + m.pW + 10;
-  drawFacetShadow(m.fx(0.5), m.tipY, H, 16, 10, far, "20,20,70", 0.28);
-  drawFacetShadow(m.fx(0.5), m.tipY, H, 44, 6, far, "20,20,70", 0.14);
+  drawFacetShadow(m.fx(0.5), m.tipY, H, 18, 12, far, "5,8,28", 0.42);
+  drawFacetShadow(m.fx(0.5), m.tipY, H, 52, 8, far, "5,8,28", 0.22);
 
-  // forested foothills (two rows of rounded treetops)
-  [[0.80, "#1f5a3a"], [0.86, "#154530"]].forEach(([yf, color], row) => {
+  [[0.80, "#143d27"], [0.86, "#0d2b1c"]].forEach(([yf, color], row) => {
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(m.pX - 10, H);
@@ -1407,13 +1353,12 @@ function paintFuji(m) {
     ctx.fill();
   });
 
-  // lake at the foot of the mountain
   const lake = ctx.createLinearGradient(0, H - 34, 0, H);
-  lake.addColorStop(0, "#58b0e0");
-  lake.addColorStop(1, "#2a6fa3");
+  lake.addColorStop(0, "#3b82b8");
+  lake.addColorStop(1, "#19436b");
   ctx.fillStyle = lake;
   ctx.fillRect(m.pX - 10, H - 34, m.pW + 20, 34);
-  ctx.strokeStyle = "rgba(255,255,255,0.4)";
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
   ctx.lineWidth = 2;
   [0, 1, 2].forEach(i => {
     for (let x = m.pX + 10 + i * 14; x < m.pX + m.pW - 20; x += 62) {
@@ -1428,7 +1373,6 @@ function paintFuji(m) {
 function paintInthanon(m) {
   fillMountainGradient(m, [[0, "#6dbb8a"], [0.35, "#2f8a5a"], [1, "#0b3321"]]);
 
-  // rainforest canopy: rounded treetops, lower ones drawn in front
   INTHANON_TREES.forEach(t => {
     ctx.fillStyle = `hsl(${138 + t.shade * 18}, ${42 + t.shade * 18}%, ${36 - t.yf * 18 + t.shade * 6}%)`;
     ctx.beginPath();
@@ -1438,7 +1382,6 @@ function paintInthanon(m) {
 
   drawFacetShadow(m.fx(0.5), m.tipY, H, 10, 12, m.pX + m.pW + 10, "0,25,15", 0.28);
 
-  // drifting cloud-forest mist across the mid slopes
   const mist = ctx.createLinearGradient(0, m.fy(0.45), 0, m.fy(0.78));
   mist.addColorStop(0, "rgba(255,255,255,0)");
   mist.addColorStop(0.5, "rgba(255,255,255,0.33)");
@@ -1450,7 +1393,6 @@ function paintInthanon(m) {
 function paintSinai(m) {
   fillMountainGradient(m, [[0, "#e8b07c"], [0.45, "#b2663c"], [1, "#5a2d18"]]);
 
-  // layered sandstone strata
   ctx.strokeStyle = "rgba(70,30,12,0.28)";
   ctx.lineWidth = 2;
   for (let k = 1; k <= 11; k++) {
@@ -1467,7 +1409,6 @@ function paintSinai(m) {
   drawFacetShadow(m.fx(0.50), m.tipY, H, 14, 8, far, "50,15,0", 0.20);
   drawFacetShadow(m.fx(0.63), m.fy(0.22), H, 16, 6, far, "50,15,0", 0.14);
 
-  // the switchback pilgrim path ("Steps of Repentance")
   const steps = [[0.28, 0.95], [0.38, 0.84], [0.30, 0.72], [0.42, 0.60], [0.36, 0.50],
                  [0.46, 0.40], [0.42, 0.30], [0.49, 0.18], [0.50, 0.04]];
   ctx.strokeStyle = "rgba(255,235,200,0.6)";
@@ -1478,7 +1419,6 @@ function paintSinai(m) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // dusty haze at the foot
   const haze = ctx.createLinearGradient(0, m.fy(0.7), 0, H);
   haze.addColorStop(0, "rgba(242,201,76,0)");
   haze.addColorStop(1, "rgba(242,201,76,0.35)");
@@ -1489,10 +1429,8 @@ function paintSinai(m) {
 function paintLogan(m) {
   fillMountainGradient(m, [[0, "#f4f8fc"], [0.5, "#9db3c6"], [1, "#2f3b36"]]);
 
-  // big glacier field
   drawSnowCap(m, [0.40, 0.90, 0.20, 0.70, 0.50, 1.0, 0.30, 0.80, 0.10, 0.60, 0.35, 0.90, 0.40], 0.42, 0.22, "#f6fafd");
 
-  // dark rock ridges poking through the ice
   ctx.strokeStyle = "rgba(45,60,78,0.5)";
   ctx.lineWidth = 3;
   [
@@ -1505,7 +1443,6 @@ function paintLogan(m) {
     ctx.stroke();
   });
 
-  // pale blue crevasse streaks
   ctx.strokeStyle = "rgba(120,165,200,0.6)";
   ctx.lineWidth = 1.5;
   [[0.40, 0.45, 0.46, 0.55], [0.55, 0.40, 0.62, 0.52], [0.34, 0.60, 0.40, 0.68]].forEach(([a, b, c, d]) => {
@@ -1517,7 +1454,6 @@ function paintLogan(m) {
 
   drawFacetShadow(m.fx(0.52), m.tipY, H, 16, 10, m.pX + m.pW + 10, "30,50,90", 0.24);
 
-  // dark conifers along the base
   ctx.fillStyle = "#1c2b24";
   for (let x = m.pX - 10, i = 0; x < m.pX + m.pW + 10; x += 13, i++) {
     const th = 14 + ((i * 37) % 7) * 2;
@@ -1533,7 +1469,6 @@ function paintLogan(m) {
 function paintKosciuszko(m) {
   fillMountainGradient(m, [[0, "#d9cfae"], [0.45, "#9a9060"], [1, "#3d3f2c"]]);
 
-  // tussock grass
   ctx.strokeStyle = "rgba(70,75,38,0.7)";
   ctx.lineWidth = 1.5;
   KOSCI_TUSSOCK.forEach(t => {
@@ -1546,7 +1481,6 @@ function paintKosciuszko(m) {
     ctx.stroke();
   });
 
-  // snow patches near the summit
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   [[0.46, 0.16, 22, 6], [0.66, 0.18, 24, 6], [0.38, 0.32, 18, 5]].forEach(([xf, yf, rx, ry]) => {
     ctx.beginPath();
@@ -1554,7 +1488,6 @@ function paintKosciuszko(m) {
     ctx.fill();
   });
 
-  // granite boulders (tors) on the summit
   [[0.56, 0.07, 9, 6], [0.66, 0.09, 8, 5], [0.49, 0.13, 7, 5]].forEach(([xf, yf, rx, ry]) => {
     ctx.fillStyle = "#a8a7a0";
     ctx.beginPath();
@@ -1569,16 +1502,136 @@ function paintKosciuszko(m) {
   drawFacetShadow(m.fx(0.62), m.tipY, H, 16, 10, m.pX + m.pW + 10, "30,25,5", 0.20);
 }
 
-/* ---------- the two golden stupas on top of Doi Inthanon ---------- */
+function paintEverest(m) {
+  fillMountainGradient(m, [[0, "#e2e8f0"], [0.42, "#4a5568"], [1, "#1a202c"]]);
+
+  drawSnowCap(m, [0.35, 0.85, 0.25, 0.95, 0.45, 1.0, 0.30, 0.80, 0.40], 0.26, 0.28, "#f8fafc");
+
+  ctx.strokeStyle = "rgba(15, 23, 42, 0.65)";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(m.fx(0.50), m.tipY);
+  ctx.lineTo(m.fx(0.46), m.fy(0.32));
+  ctx.lineTo(m.fx(0.41), m.fy(0.65));
+  ctx.lineTo(m.fx(0.35), H);
+  ctx.stroke();
+
+  drawFacetShadow(m.fx(0.50), m.tipY, H, -18, 12, m.pX + m.pW + 10, "10,15,30", 0.42);
+
+  const plume = ctx.createLinearGradient(m.fx(0.50), m.tipY, m.fx(0.95), m.fy(0.08));
+  plume.addColorStop(0, "rgba(255,255,255,0.85)");
+  plume.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = plume;
+  ctx.beginPath();
+  ctx.moveTo(m.fx(0.50), m.tipY);
+  ctx.quadraticCurveTo(m.fx(0.70), m.tipY - 12, m.fx(0.95), m.fy(0.06));
+  ctx.quadraticCurveTo(m.fx(0.72), m.fy(0.08), m.fx(0.52), m.fy(0.05));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function paintKilimanjaro(m) {
+  fillMountainGradient(m, [[0, "#a8825e"], [0.45, "#7c583a"], [1, "#3b2818"]]);
+
+  drawSnowCap(m, [0.30, 0.85, 0.40, 1.0, 0.35, 0.90, 0.25, 0.75, 0.30], 0.14, 0.16, "#ffffff");
+
+  ctx.strokeStyle = "rgba(40, 22, 10, 0.35)";
+  ctx.lineWidth = 2;
+  [[0.42, 0.18, 0.28, 0.72], [0.54, 0.18, 0.62, 0.75], [0.48, 0.20, 0.46, 0.80]].forEach(([a, b, c, d]) => {
+    ctx.beginPath();
+    ctx.moveTo(m.fx(a), m.fy(b));
+    ctx.lineTo(m.fx(c), m.fy(d));
+    ctx.stroke();
+  });
+
+  drawFacetShadow(m.fx(0.50), m.tipY, H, 16, 8, m.pX + m.pW + 10, "35,18,5", 0.28);
+
+  ctx.fillStyle = "#b7950b";
+  ctx.fillRect(m.pX - 10, H - 36, m.pW + 20, 36);
+  ctx.fillStyle = "#4d5d23";
+  ctx.fillRect(m.pX - 10, H - 18, m.pW + 20, 18);
+
+  [0.18, 0.50, 0.82].forEach(axf => {
+    const ax = m.fx(axf);
+    ctx.fillStyle = "#24190e";
+    ctx.fillRect(ax - 2, H - 34, 4, 18);
+    ctx.beginPath();
+    ctx.ellipse(ax, H - 35, 18, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function paintMatterhorn(m) {
+  fillMountainGradient(m, [[0, "#cbd5e1"], [0.48, "#5d6d7e"], [1, "#1e293b"]]);
+
+  drawSnowCap(m, [0.40, 0.90, 0.30, 1.0, 0.45, 0.85, 0.20], 0.22, 0.30, "#f8fafc");
+
+  drawFacetShadow(m.fx(0.49), m.tipY, H, 12, 7, m.pX + m.pW + 10, "15,23,42", 0.45);
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.55)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(m.fx(0.49), m.tipY);
+  ctx.lineTo(m.fx(0.52), m.fy(0.45));
+  ctx.lineTo(m.fx(0.56), H);
+  ctx.stroke();
+
+  ctx.fillStyle = "#143d29";
+  for (let x = m.pX - 8, i = 0; x < m.pX + m.pW + 8; x += 14, i++) {
+    const th = 15 + ((i * 29) % 6) * 2;
+    ctx.beginPath();
+    ctx.moveTo(x, H);
+    ctx.lineTo(x + 7, H - th);
+    ctx.lineTo(x + 14, H);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function paintTable(m) {
+  fillMountainGradient(m, [[0, "#a5a58d"], [0.45, "#6b705c"], [1, "#3d4035"]]);
+
+  ctx.strokeStyle = "rgba(35, 38, 28, 0.35)";
+  ctx.lineWidth = 2.5;
+  for (let xf = 0.30; xf <= 0.70; xf += 0.05) {
+    ctx.beginPath();
+    ctx.moveTo(m.fx(xf), m.fy(0.03));
+    ctx.lineTo(m.fx(xf + (xf - 0.5) * 0.06), m.fy(0.65));
+    ctx.stroke();
+  }
+
+  ctx.fillStyle = "#3a5a40";
+  ctx.beginPath();
+  ctx.moveTo(m.pX - 10, H);
+  ctx.lineTo(m.pX - 10, m.fy(0.58));
+  ctx.quadraticCurveTo(m.fx(0.50), m.fy(0.48), m.pX + m.pW + 10, m.fy(0.58));
+  ctx.lineTo(m.pX + m.pW + 10, H);
+  ctx.closePath();
+  ctx.fill();
+
+  drawFacetShadow(m.fx(0.69), m.tipY, H, 18, 6, m.pX + m.pW + 10, "20,25,18", 0.26);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.92)";
+  ctx.beginPath();
+  ctx.moveTo(m.fx(0.26), m.fy(0.06));
+  for (let xf = 0.28; xf <= 0.72; xf += 0.055) {
+    ctx.arc(m.fx(xf), m.fy(0.03), 13, Math.PI, 0, false);
+  }
+  ctx.lineTo(m.fx(0.74), m.fy(0.11));
+  ctx.quadraticCurveTo(m.fx(0.50), m.fy(0.15), m.fx(0.26), m.fy(0.11));
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawStupa(sx, baseY, topY) {
   ctx.save();
   ctx.lineWidth = 1;
   ctx.strokeStyle = "rgba(0,0,0,0.3)";
 
-  ctx.fillStyle = "#efe6cf"; // terrace
+  ctx.fillStyle = "#efe6cf";
   ctx.fillRect(sx - 9, baseY - 5, 18, 5);
 
-  ctx.fillStyle = "#e9d8a0"; // bell-shaped dome
+  ctx.fillStyle = "#e9d8a0";
   ctx.beginPath();
   ctx.moveTo(sx - 8, baseY - 5);
   ctx.quadraticCurveTo(sx, baseY - 47, sx + 8, baseY - 5);
@@ -1586,7 +1639,7 @@ function drawStupa(sx, baseY, topY) {
   ctx.fill();
   ctx.stroke();
 
-  ctx.fillStyle = "#d9a82a"; // golden spire
+  ctx.fillStyle = "#d9a82a";
   ctx.beginPath();
   ctx.moveTo(sx - 3, baseY - 26);
   ctx.lineTo(sx, topY);
@@ -1608,7 +1661,6 @@ function drawLandmarkMountain(pipe) {
   const type = pipe.country.landmark.id;
   const pts = getLandmarkPoints(pipe);
 
-  // 1) paint the mountain, clipped to its own silhouette
   ctx.save();
   tracePoints(pts);
   ctx.clip();
@@ -1617,9 +1669,12 @@ function drawLandmarkMountain(pipe) {
   else if (type === "SINAI") paintSinai(m);
   else if (type === "LOGAN") paintLogan(m);
   else if (type === "KOSCIUSZKO") paintKosciuszko(m);
+  else if (type === "EVEREST") paintEverest(m);
+  else if (type === "KILIMANJARO") paintKilimanjaro(m);
+  else if (type === "MATTERHORN") paintMatterhorn(m);
+  else if (type === "TABLE") paintTable(m);
   ctx.restore();
 
-  // 2) crisp outline so it reads clearly against the sky
   ctx.save();
   tracePoints(pts);
   ctx.strokeStyle = "rgba(0,0,0,0.35)";
@@ -1628,13 +1683,11 @@ function drawLandmarkMountain(pipe) {
   ctx.stroke();
   ctx.restore();
 
-  // 3) landmark-specific extras
   if (type === "INTHANON") {
     drawStupa(m.fx(0.44), m.fy(0.15), m.tipY);
     drawStupa(m.fx(0.56), m.fy(0.15), m.tipY);
   }
 
-  // 4) name label
   drawLandmarkLabel(pipe.x + pipe.width / 2, pipe.gapBottom - 35, pipe.country.landmark);
 }
 
@@ -1946,14 +1999,13 @@ function renderCollectionsChart() {
   document.getElementById("collections-modal-title").textContent = I18N[currentLang].collectionsTitle;
   chartContainer.innerHTML = "";
 
-  // Sort mountains by height ascending so comparison is intuitive
   const sortedLandmarks = [...LANDMARK_DB].sort((a, b) => a.metersHeight - b.metersHeight);
-  const maxHeight = 6200; // Mt. Logan is 5,959m
+  const maxHeight = 9100; // Mt. Everest is 8,849m
 
   sortedLandmarks.forEach(landmark => {
     const isUnlocked = unlockedLandmarks.has(landmark.id);
     const nameText = landmark.name[currentLang] || landmark.name.en;
-    const heightPercent = Math.max(12, Math.round((landmark.metersHeight / maxHeight) * 100));
+    const heightPercent = Math.max(10, Math.round((landmark.metersHeight / maxHeight) * 100));
 
     const col = document.createElement("div");
     col.className = "chart-column";
@@ -2000,21 +2052,41 @@ function togglePause() {
 }
 
 function openGuide() {
+  // Auto-pause active gameplay when opening the Field Guide
+  if (gameRunning && !isPaused) {
+    isPaused = true;
+    stopEngineSound();
+  }
+  collectionsModal.style.display = "none";
   renderGuideList();
   guideModal.style.display = "flex";
 }
 
 function closeGuide() {
   guideModal.style.display = "none";
+  // If paused mid-game, show the Pause Modal so the plane doesn't immediately crash
+  if (gameRunning && isPaused) {
+    pauseModal.style.display = "flex";
+  }
 }
 
 function openCollections() {
+  // Auto-pause active gameplay when opening Mountain Collections
+  if (gameRunning && !isPaused) {
+    isPaused = true;
+    stopEngineSound();
+  }
+  guideModal.style.display = "none";
   renderCollectionsChart();
   collectionsModal.style.display = "flex";
 }
 
 function closeCollections() {
   collectionsModal.style.display = "none";
+  // If paused mid-game, show the Pause Modal so the plane doesn't immediately crash
+  if (gameRunning && isPaused) {
+    pauseModal.style.display = "flex";
+  }
 }
 
 function showMainMenu() {
